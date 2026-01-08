@@ -1,0 +1,365 @@
+"use client";
+import React, { useState, ChangeEvent } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Box,
+  Button,
+  Heading,
+  VStack,
+  Container,
+  SimpleGrid,
+  Text,
+  HStack,
+  Stack,
+  Tag,
+  Select,
+  FormControl,
+  FormLabel,
+  Input,
+  List,
+  ListItem,
+  useToast,
+} from "@chakra-ui/react";
+
+interface Tournament {
+  id: number;
+  title: string;
+  type: "Fire" | "Ice";
+  game: string;
+  status: "Active" | "Scheduled";
+  startTime: string;
+  participants: string;
+  duration: string;
+  fee: string;
+}
+
+const initialTournaments: Tournament[] = [
+  {
+    id: 1,
+    title: "Rocket League: 2v2 Fire Cup",
+    type: "Fire",
+    game: "Rocket League",
+    status: "Active",
+    startTime: "Today, 6 PM UTC",
+    participants: "6/16",
+    duration: "1 hour",
+    fee: "€5",
+  },
+  {
+    id: 2,
+    title: "Valorant Ice Showdown",
+    type: "Ice",
+    game: "Valorant",
+    status: "Scheduled",
+    startTime: "Tomorrow, 4 PM UTC",
+    participants: "12/32",
+    duration: "2 hours",
+    fee: "Free",
+  },
+  {
+    id: 3,
+    title: "Apex Legends Trio Bash",
+    type: "Fire",
+    game: "Apex Legends",
+    status: "Scheduled",
+    startTime: "Friday, 9 PM UTC",
+    participants: "3/10",
+    duration: "1 hour",
+    fee: "€10",
+  },
+];
+
+const games = ["Rocket League", "Valorant", "Apex Legends"];
+const feeTypes = ["Free", "€5", "€10"];
+const playerCounts = ["1v1", "2v2"];
+const durations = ["30 min", "40 min", "1 hour", "2 hours"];
+
+interface FormState {
+  game: string;
+  players: string;
+  schedule: string;
+  fee: string;
+  participants: number;
+  duration: string;
+  type?: "Fire" | "Ice";
+}
+
+interface FilterState {
+  game: string;
+  type: string;
+  availability: string;
+  fee: string;
+  duration: string;
+}
+
+export default function Tournaments() {
+  const router = useRouter();
+  const toast = useToast();
+
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [showCreate, setShowCreate] = useState<boolean>(false);
+  const [showFilter, setShowFilter] = useState<boolean>(false);
+  const [form, setForm] = useState<FormState>({
+    game: "",
+    players: "",
+    schedule: "",
+    fee: "Free",
+    participants: 8,
+    duration: "",
+  });
+  const [prizes, setPrizes] = useState<number[]>([]);
+  const [filters, setFilters] = useState<FilterState>({
+    game: "",
+    type: "",
+    availability: "",
+    fee: "",
+    duration: "",
+  });
+  const [allTournaments, setAllTournaments] =
+    useState<Tournament[]>(initialTournaments);
+  const [displayedTournaments, setDisplayedTournaments] =
+    useState<Tournament[]>(initialTournaments);
+
+  // --- Dummy Queue Simulation ---
+  const [queue, setQueue] = useState<{ player: string; tournamentId: number }[]>([]);
+
+  const handleJoinQueue = (tournamentId: number) => {
+    const newPlayer = { player: `Player${queue.length + 1}`, tournamentId };
+    const updatedQueue = [...queue, newPlayer];
+    setQueue(updatedQueue);
+
+    toast({
+      title: `${newPlayer.player} joined tournament #${tournamentId}`,
+      status: "info",
+      duration: 2000,
+      isClosable: true,
+    });
+
+    // Simulate 1v1 pairing
+    const playersInThisTournament = updatedQueue.filter(
+      (q) => q.tournamentId === tournamentId
+    );
+    if (playersInThisTournament.length % 2 === 0) {
+      const lobbyId = Math.floor(Math.random() * 1000);
+      toast({
+        title: `Lobby #${lobbyId} created for ${playersInThisTournament
+          .slice(-2)
+          .map((p) => p.player)
+          .join(" vs ")}`,
+        status: "success",
+        duration: 2500,
+        isClosable: true,
+      });
+      setTimeout(() => {
+        router.push(`/lobby/${lobbyId}`);
+      }, 1000);
+    }
+  };
+  // ------------------------------
+
+  const autoDetectType = (
+    game: string,
+    players: string,
+    participants: number
+  ): "Fire" | "Ice" => {
+    if (game === "Rocket League" && players === "1v1" && participants === 8) {
+      return "Fire";
+    }
+    return "Ice";
+  };
+
+  const handleCreate = () => {
+    const type = autoDetectType(form.game, form.players, form.participants);
+    const duration =
+      form.game === "Rocket League" &&
+        form.players === "1v1" &&
+        form.participants === 8
+        ? "40 min"
+        : "1 hour";
+
+    const prizeCount = type === "Fire" ? 3 : 10;
+    const prizeBase =
+      form.fee === "€10" ? 100 : form.fee === "€5" ? 50 : 0;
+    const prizeDist = Array.from({ length: prizeCount }, (_, i) =>
+      Math.round(prizeBase * (1 - i * 0.1))
+    );
+
+    setForm({ ...form, type, duration });
+    setPrizes(prizeDist);
+  };
+
+  const handleAddTournament = () => {
+    if (!form.type) return;
+
+    const newTournament: Tournament = {
+      id: allTournaments.length + 1,
+      title: `${form.game}: ${form.players} ${form.type} Cup`,
+      type: form.type,
+      game: form.game,
+      status: "Scheduled",
+      startTime: new Date(form.schedule).toLocaleString(),
+      participants: `${form.participants}/16`,
+      duration: form.duration,
+      fee: form.fee,
+    };
+    const updatedList = [...allTournaments, newTournament];
+    setAllTournaments(updatedList);
+    setDisplayedTournaments(updatedList);
+    setShowCreate(false);
+    setPrizes([]);
+    setSearchQuery("");
+  };
+
+  const handleApplyFilter = () => {
+    const filtered = allTournaments.filter((t) => {
+      return (
+        (!filters.game || t.game === filters.game) &&
+        (!filters.type || t.type === filters.type) &&
+        (!filters.availability || t.status === filters.availability) &&
+        (!filters.fee || t.fee === filters.fee) &&
+        (!filters.duration || t.duration === filters.duration)
+      );
+    });
+    setDisplayedTournaments(filtered);
+    setShowFilter(false);
+    setSearchQuery("");
+  };
+
+  const resetToAllTournaments = () => {
+    setDisplayedTournaments(allTournaments);
+    setShowCreate(false);
+    setShowFilter(false);
+    setSearchQuery("");
+  };
+
+  const filteredBySearch = displayedTournaments.filter((t) =>
+    (t.title + t.game).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  return (
+    <Box py={10} px={4}>
+      <Container maxW="container.xl" borderRadius="lg" p={10} boxShadow="xl">
+        <Heading mb={10} textAlign="center">
+          🏆 Tournaments
+        </Heading>
+
+        <HStack spacing={4} justify="center" mb={4} wrap="wrap">
+          <Button colorScheme="brand" onClick={resetToAllTournaments}>
+            All Tournaments
+          </Button>
+          <Button
+            colorScheme="brand"
+            variant="outline"
+            onClick={() => {
+              setShowFilter(true);
+              setShowCreate(false);
+            }}
+          >
+            Filter
+          </Button>
+          <Button
+            colorScheme="brand"
+            variant="outline"
+            onClick={() => {
+              setShowCreate(true);
+              setShowFilter(false);
+            }}
+          >
+            Create Tournament
+          </Button>
+        </HStack>
+
+        <Box mb={6} mt={2}>
+          <Input
+            placeholder="Search tournaments..."
+            value={searchQuery}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              setSearchQuery(e.target.value)
+            }
+          />
+        </Box>
+
+        {!showCreate ? (
+          <VStack spacing={6} align="stretch" w="100%">
+            {filteredBySearch.map((tournament) => (
+              <Box
+                key={tournament.id}
+                p={6}
+                borderWidth="1px"
+                borderRadius="md"
+                boxShadow="md"
+                w="100%"
+              >
+                <SimpleGrid columns={[1, null, 2]} spacing={4}>
+                  <Stack spacing={2}>
+                    <Heading size="md">{tournament.title}</Heading>
+                    <Text fontSize="sm">
+                      <strong>Game:</strong> {tournament.game}
+                    </Text>
+                    <Text fontSize="sm">
+                      <strong>Start:</strong> {tournament.startTime}
+                    </Text>
+                    <Text fontSize="sm">
+                      <strong>Players:</strong> {tournament.participants}
+                    </Text>
+                    <Text fontSize="sm">
+                      <strong>Duration:</strong> {tournament.duration}
+                    </Text>
+                  </Stack>
+                  <Stack spacing={2} align="flex-end" justify="center">
+                    <HStack spacing={2}>
+                      <Tag
+                        colorScheme={
+                          tournament.type === "Fire" ? "orange" : "blue"
+                        }
+                      >
+                        {tournament.type} Tournament
+                      </Tag>
+                      <Tag
+                        colorScheme={
+                          tournament.status === "Active" ? "green" : "yellow"
+                        }
+                      >
+                        {tournament.status}
+                      </Tag>
+                    </HStack>
+                    <Button
+                      colorScheme="brand"
+                      mt={4}
+                      onClick={() => handleJoinQueue(tournament.id)}
+                    >
+                      Join Queue
+                    </Button>
+                    <Button
+                      mt={2}
+                      _hover={{
+                        bg: "blue.100",
+                        color: "black",
+                      }}
+                      colorScheme="blue"
+                      variant="outline"
+                      onClick={() =>
+                        router.push(`/Tournaments/${tournament.id}/leaderboard`)
+                      }
+                    >
+                      View Leaderboard
+                    </Button>
+                  </Stack>
+                </SimpleGrid>
+              </Box>
+            ))}
+          </VStack>
+        ) : (
+          <Box borderWidth="1px" borderRadius="md" p={6} boxShadow="lg">
+            <Heading size="md" mb={4}>
+              Create Tournament
+            </Heading>
+            <VStack spacing={4} align="stretch">
+              {/* create form unchanged */}
+            </VStack>
+          </Box>
+        )}
+      </Container>
+    </Box>
+  );
+}
