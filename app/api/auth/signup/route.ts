@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import cookie from "cookie";
+import { serialize } from "cookie";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { User } from "../../../models/User";
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     });
 
     // Set cookie for authentication
-    const setCookieHeader = cookie.serialize("token", token, {
+    const setCookieHeader = serialize("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
