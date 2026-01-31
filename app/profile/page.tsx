@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Box,
   Heading,
@@ -13,8 +13,17 @@ import {
   Badge,
   Divider,
   Stack,
+  Button,
   useColorModeValue,
+  AlertDialog,
+  AlertDialogBody,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogContent,
+  AlertDialogOverlay,
+  useDisclosure,
 } from "@chakra-ui/react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authstore";
 
 interface PaymentMethod {
@@ -29,10 +38,14 @@ interface PaymentMethod {
 
 export default function Profile() {
   const user = useAuthStore((state) => state.user);
-
+  const { logout } = useAuthStore();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const router = useRouter();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     async function fetchPaymentMethods() {
@@ -66,8 +79,8 @@ export default function Profile() {
   }
 
   const bg = useColorModeValue(
-    "rgba(255, 255, 255, 0.7)", // light mode: white with opacity
-    "rgba(26, 32, 44, 0.7)"    // dark mode: dark gray with opacity
+    "rgba(255, 255, 255, 0.7)",
+    "rgba(26, 32, 44, 0.7)"
   );
   const cardBg = useColorModeValue("gray.50", "gray.600");
 
@@ -77,26 +90,30 @@ export default function Profile() {
       mx="auto"
       mt={10}
       p={8}
-      bg={"transparent"}
+      bg="transparent"
       boxShadow="md"
       borderRadius="md"
       backdropFilter="saturate(180%) blur(10px)"
     >
       <Heading mb={6}>Your Profile</Heading>
 
+      {/* User Info */}
       <VStack spacing={4} align="start" mb={8}>
         <Box>
           <Text fontWeight="bold">Name:</Text>
           <Text>{user.name}</Text>
         </Box>
+
         <Box>
           <Text fontWeight="bold">Age:</Text>
           <Text>{user.age}</Text>
         </Box>
+
         <Box>
           <Text fontWeight="bold">Email:</Text>
           <Text>{user.email}</Text>
         </Box>
+
         <Box>
           <Text fontWeight="bold" mb={1}>
             Gamer Tags:
@@ -109,7 +126,12 @@ export default function Profile() {
             <Stack spacing={1} pl={4}>
               {Object.entries(user.gamerTags).map(([game, tag]) => (
                 <HStack key={game} spacing={2}>
-                  <Badge colorScheme="purple" fontSize="sm" minW="70px" textAlign="center">
+                  <Badge
+                    colorScheme="purple"
+                    fontSize="sm"
+                    minW="70px"
+                    textAlign="center"
+                  >
                     {game}
                   </Badge>
                   <Text>{tag}</Text>
@@ -122,6 +144,7 @@ export default function Profile() {
 
       <Divider mb={6} />
 
+      {/* Payment Methods */}
       <Heading size="md" mb={4}>
         Payment Methods
       </Heading>
@@ -157,17 +180,71 @@ export default function Profile() {
             transition="box-shadow 0.2s"
           >
             <HStack justifyContent="space-between">
-              <Text fontWeight="bold" fontSize="lg" textTransform="capitalize">
+              <Text
+                fontWeight="bold"
+                fontSize="lg"
+                textTransform="capitalize"
+              >
                 {card.brand}
               </Text>
               <Text>**** **** **** {card.last4}</Text>
             </HStack>
             <Text fontSize="sm" color="gray.500">
-              Expiry: {card.exp_month.toString().padStart(2, "0")}/{card.exp_year}
+              Expiry: {card.exp_month.toString().padStart(2, "0")}/
+              {card.exp_year}
             </Text>
           </Box>
         ))}
       </VStack>
+
+      {/* Delete Profile */}
+      <Divider my={8} />
+
+      <Button
+        colorScheme="red"
+        variant="outline"
+        size="lg"
+        onClick={onOpen}
+      >
+        Delete Profile
+      </Button>
+
+      {/* Confirmation Dialog */}
+      <AlertDialog
+        isOpen={isOpen}
+        leastDestructiveRef={cancelRef}
+        onClose={onClose}
+        isCentered
+      >
+        <AlertDialogOverlay>
+          <AlertDialogContent bg="white" textColor={"black"} >
+            <AlertDialogHeader fontSize="lg" fontWeight="bold">
+              Delete Profile
+            </AlertDialogHeader>
+
+            <AlertDialogBody>
+              Are you sure? This action cannot be undone.
+            </AlertDialogBody>
+
+            <AlertDialogFooter>
+              <Button ref={cancelRef} onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                colorScheme="red"
+                ml={3}
+                onClick={() => {
+                  onClose();
+                  logout();
+                  router.push("/");
+                }}
+              >
+                Delete
+              </Button>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialogOverlay>
+      </AlertDialog>
     </Box>
   );
 }

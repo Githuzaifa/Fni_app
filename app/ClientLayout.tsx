@@ -9,7 +9,6 @@ import {
   Image,
   ColorModeScript,
   Text,
-  Button,
 } from "@chakra-ui/react";
 import { iceTheme, fireTheme } from "./components/Layout/theme";
 import { useState } from "react";
@@ -19,7 +18,7 @@ import RightMenu from "./components/Layout/RightMenu";
 import Footer from "./components/Layout/Footer";
 import logo from "../public/fire-ice-logo.png";
 import { useAuthStore } from "./store/authstore";
-import NextLink from "next/link";
+import { useRouter } from "next/navigation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,13 +30,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export default function ClientLayout({ children }: { children: React.ReactNode }) {
+export default function ClientLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [themeMode, setThemeMode] = useState<"fire" | "ice">("ice");
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const balance = useAuthStore((state) => state.balance);
+  const router = useRouter();
 
-  const walletBalance = 250; // Example value
 
-  const toggleTheme = () => setThemeMode((prev) => (prev === "ice" ? "fire" : "ice"));
+  const toggleTheme = () =>
+    setThemeMode((prev) => (prev === "ice" ? "fire" : "ice"));
 
   return (
     <html lang="en">
@@ -50,51 +55,57 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
                 : fireTheme.config.initialColorMode
             }
           />
-          <BackgroundVisual />
 
-          {/* 💰 Wallet Section – moved slightly lower */}
+          {/* 🌌 Background (NON-INTERACTIVE) */}
+          <Box pointerEvents="none" position="fixed" inset={0} zIndex={0}>
+            <BackgroundVisual />
+          </Box>
+
+          {/* 💰 WALLET BUTTON (FIXED + CLICKABLE) */}
           {isAuthenticated && (
-  <Box
-    position= "relative"
-    top="20px"
-    zIndex={1}
-    p={3}
-    right="100px"
-    borderWidth="1px"
-    borderRadius="lg"
-    textAlign="center"
-    bg={themeMode === "fire" ? "orange.500" : "teal.300"}
-    color={themeMode === "fire" ? "black" : "white"}
-    shadow="md"
-    ml="auto"          // 👈 keeps it on the right
-    maxW="220px"
-  >
-    <Text fontSize="lg" fontWeight="bold">💰 Wallet Balance</Text>
-    <Text fontSize="2xl" fontWeight="extrabold" mt={1}>
-      ${walletBalance}
-    </Text>
+            <Box
+              position="fixed"
+              top="20px"
+              right="100px"
+              w="72px"
+              h="72px"
+              zIndex={2}
+              borderRadius="full"
+              bg={themeMode === "fire" ? "orange.500" : "teal.300"}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+              cursor="pointer"
+              boxShadow="xl"
+              _hover={{
+                bg: themeMode === "fire" ? "orange.400" : "teal.400",
+                transform: "scale(1.08)",
+              }}
+              _active={{ transform: "scale(0.95)" }}
+              onClick={() => router.push("/wallet")}
+            >
+              <Text fontSize="28px">💰</Text>
 
-    <NextLink href="/wallet" passHref legacyBehavior>
-      <Button
-        as="a"
-        mt={3}
-        size="sm"
-        colorScheme={themeMode === "fire" ? "blackAlpha" : "whiteAlpha"}
-        variant="outline"
-        _hover={{
-          bg: themeMode === "fire" ? "orange.300" : "teal.500",
-          color: "white",
-        }}
-      >
-        View Wallet
-      </Button>
-    </NextLink>
-  </Box>
-)}
+              {/* Balance badge */}
+              <Box
+                position="absolute"
+                top="-8px"
+                right="-8px"
+                bg="black"
+                color="white"
+                fontSize="xs"
+                px={2}
+                py={1}
+                borderRadius="full"
+                fontWeight="bold"
+                pointerEvents="none"
+              >
+                ${balance}
+              </Box>
+            </Box>
+          )}
 
-
-
-
+          {/* MAIN CONTENT */}
           <Box position="relative" zIndex={1}>
             <VStack minH="50vh" spacing={2}>
               <Image

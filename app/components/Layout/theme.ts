@@ -192,38 +192,38 @@ const fireTheme = extendTheme({
       },
     },
 
-//    Modal: {
-//  baseStyle: {
-//    dialog: {
-//      bg: "gray.900", // dark black background
-//      color: "white", // text color inside modal
-//      borderRadius: "md",
-//    },
-//    header: {
-//      borderBottom: "1px solid",
-//      borderColor: "gray.700",
-//      color: "orange.300",
-//    },
-//    body: {
-//      color: "black",
-//    },
-//    
-//    footer: {
-//      borderTop: "1px solid",
-//      borderColor: "gray.700",
-//    },
-//  },
-//
-//  variants: {
-//    /* Example: solid modal */
-//    solid: {
-//      dialog: {
-//        bg: "black",
-//        color: "white",
-//      },
-//    },
-//  },
-//}, 
+    Modal: {
+  baseStyle: {
+    dialog: {
+      bg: "gray.900", // dark black background
+      color: "black", // text color inside modal
+      borderRadius: "md",
+    },
+    header: {
+      borderBottom: "1px solid",
+      borderColor: "gray.700",
+      color: "orange.300",
+    },
+    body: {
+      color: "black",
+    },
+    
+    footer: {
+      borderTop: "1px solid",
+      borderColor: "gray.700",
+    },
+  },
+
+  variants: {
+    /* Example: solid modal */
+    solid: {
+      dialog: {
+        bg: "black",
+        color: "white",
+      },
+    },
+  },
+},
 
     /* ---------------- SELECT ---------------- */
     Select: {
@@ -231,7 +231,7 @@ const fireTheme = extendTheme({
       baseStyle: {
         field: {
           bg: "black",
-          color: "black",
+          color: "white",
           _hover: { borderColor: "brand.500" },
           _focus: {
             borderColor: "brand.500",

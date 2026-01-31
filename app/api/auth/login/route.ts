@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import { serialize } from "cookie";
+import cookie from "cookie";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { User } from "../../../models/User";
 
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       expiresIn: "1h",
     });
 
-    const setCookieHeader = serialize("token", token, {
+    const setCookieHeader = cookie.serialize("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",

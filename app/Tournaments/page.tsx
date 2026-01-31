@@ -279,7 +279,214 @@ export default function Tournaments() {
           />
         </Box>
 
-        {!showCreate ? (
+        {showFilter && (
+          <Box
+            borderWidth="1px"
+            borderRadius="lg"
+            p={6}
+            mb={6}
+            boxShadow="md"
+          >
+            <Heading size="sm" mb={4}>
+              Filter Tournaments
+            </Heading>
+
+            <SimpleGrid columns={[1, 2, 3]} spacing={4}>
+              <FormControl>
+                <FormLabel>Game</FormLabel>
+                <Select
+                  value={filters.game}
+                  onChange={(e) =>
+                    setFilters({ ...filters, game: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  {games.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Type</FormLabel>
+                <Select
+                  value={filters.type}
+                  onChange={(e) =>
+                    setFilters({ ...filters, type: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  <option value="Fire">Fire</option>
+                  <option value="Ice">Ice</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Availability</FormLabel>
+                <Select
+                  value={filters.availability}
+                  onChange={(e) =>
+                    setFilters({ ...filters, availability: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  <option value="Active">Active</option>
+                  <option value="Scheduled">Scheduled</option>
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Fee</FormLabel>
+                <Select
+                  value={filters.fee}
+                  onChange={(e) =>
+                    setFilters({ ...filters, fee: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  {feeTypes.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Duration</FormLabel>
+                <Select
+                  value={filters.duration}
+                  onChange={(e) =>
+                    setFilters({ ...filters, duration: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  {durations.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+            </SimpleGrid>
+
+            <Button
+              mt={5}
+              colorScheme="brand"
+              onClick={handleApplyFilter}
+            >
+              Apply Filter
+            </Button>
+          </Box>
+        )}
+
+        {showCreate && (
+          <Box borderWidth="1px" borderRadius="lg" p={6} mb={6} boxShadow="md">
+            <Heading size="sm" mb={4}>
+              Create Tournament
+            </Heading>
+
+            <VStack spacing={4} align="stretch">
+              <FormControl>
+                <FormLabel>Game</FormLabel>
+                <Select
+                  placeholder="Select game"
+                  value={form.game}
+                  onChange={(e) =>
+                    setForm({ ...form, game: e.target.value })
+                  }
+                >
+                  {games.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Player Count</FormLabel>
+                <Select
+                  placeholder="1v1 or 2v2"
+                  value={form.players}
+                  onChange={(e) =>
+                    setForm({ ...form, players: e.target.value })
+                  }
+                >
+                  {playerCounts.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Participants</FormLabel>
+                <Input
+                  type="number"
+                  value={form.participants}
+                  onChange={(e) =>
+                    setForm({ ...form, participants: Number(e.target.value) })
+                  }
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Schedule</FormLabel>
+                <Input
+                  type="datetime-local"
+                  value={form.schedule}
+                  onChange={(e) =>
+                    setForm({ ...form, schedule: e.target.value })
+                  }
+                />
+              </FormControl>
+
+              <FormControl>
+                <FormLabel>Fee</FormLabel>
+                <Select
+                  value={form.fee}
+                  onChange={(e) =>
+                    setForm({ ...form, fee: e.target.value })
+                  }
+                >
+                  {feeTypes.map((f) => (
+                    <option key={f} value={f}>
+                      {f}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Button colorScheme="blue" onClick={handleCreate}>
+                Preview Prize Pool
+              </Button>
+
+              {prizes.length > 0 && (
+                <Box>
+                  <Text fontWeight="bold" mb={2}>
+                    Prize Pool
+                  </Text>
+                  <List spacing={1}>
+                    {prizes.map((p, i) => (
+                      <ListItem key={i}>#{i + 1}: €{p}</ListItem>
+                    ))}
+                  </List>
+                </Box>
+              )}
+
+              <Button colorScheme="green" onClick={handleAddTournament}>
+                Create Tournament
+              </Button>
+            </VStack>
+          </Box>
+        )}
+
+
+        {!showCreate && (
           <VStack spacing={6} align="stretch" w="100%">
             {filteredBySearch.map((tournament) => (
               <Box
@@ -349,16 +556,11 @@ export default function Tournaments() {
               </Box>
             ))}
           </VStack>
-        ) : (
-          <Box borderWidth="1px" borderRadius="md" p={6} boxShadow="lg">
-            <Heading size="md" mb={4}>
-              Create Tournament
-            </Heading>
-            <VStack spacing={4} align="stretch">
-              {/* create form unchanged */}
-            </VStack>
-          </Box>
-        )}
+        )
+        }
+
+
+
       </Container>
     </Box>
   );

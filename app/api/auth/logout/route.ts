@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { serialize } from "cookie";
+import cookie from "cookie";
 
 export async function POST() {
   try {
     // Clear the token cookie
-    const setCookieHeader = serialize("token", "", {
+    const setCookieHeader = cookie.serialize("token", "", {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",

@@ -17,17 +17,20 @@ interface User {
 interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
+  balance: number;
   login: (user: User) => void;
   logout: () => void;
   updateGamerTag: (gameName: string, tag: string) => void;
+  setBalance: (amount: number) => void;
+
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set) => ({ 
       isAuthenticated: false,
       user: null,
-
+      balance: 0,
       login: (user) =>
         set({
           isAuthenticated: true,
@@ -59,7 +62,11 @@ export const useAuthStore = create<AuthState>()(
             },
           };
         }),
+        setBalance: (amount) => set({ balance: amount }),
+
     }),
+
+
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),

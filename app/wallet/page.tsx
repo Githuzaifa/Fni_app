@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthStore } from "../store/authstore";
 import React, { useEffect, useState } from "react";
 import {
   Box,
@@ -15,6 +16,7 @@ import {
   Spinner,
   Flex,
 } from "@chakra-ui/react";
+import { number } from "framer-motion";
 
 interface Transaction {
   id: number;
@@ -32,6 +34,7 @@ export default function Wallet() {
   const [wallet, setWallet] = useState<WalletData | null>(null);
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const { setBalance } = useAuthStore();
   const toast = useToast();
 
   const fetchWallet = async () => {
@@ -84,6 +87,7 @@ export default function Wallet() {
 
       const data = await res.json();
       setWallet(data);
+      setBalance(Number(data.balance.toFixed(2) ?? "0.00"));
       setAmount("");
       toast({
         title: `Successfully ${

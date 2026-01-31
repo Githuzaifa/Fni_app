@@ -9,20 +9,23 @@ import {
   useElements,
 } from "@stripe/react-stripe-js";
 
-// Load Stripe publishable key from env
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!
+);
 
-// PayPal script loader
 declare global {
   interface Window {
     paypal?: any;
   }
 }
 
-function StripeSetupForm({ clientSecret, onSetupComplete }: { clientSecret: string; onSetupComplete: (pmId: string) => void; }) {
+function StripeSetupForm({
+  onSetupComplete,
+}: {
+  onSetupComplete: (pmId: string) => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
-  const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,16 +35,13 @@ function StripeSetupForm({ clientSecret, onSetupComplete }: { clientSecret: stri
     setLoading(true);
     const { error, setupIntent } = await stripe.confirmSetup({
       elements,
-      confirmParams: { return_url: window.location.href },
       redirect: "if_required",
     });
 
-    if (error) {
-      setMessage(error.message ?? "Error");
-    } else if (setupIntent?.status === "succeeded") {
-      setMessage("Payment method saved!");
+    if (!error && setupIntent?.status === "succeeded") {
       onSetupComplete(setupIntent.payment_method!);
     }
+
     setLoading(false);
   };
 
@@ -49,74 +49,71 @@ function StripeSetupForm({ clientSecret, onSetupComplete }: { clientSecret: stri
     <form onSubmit={handleSubmit}>
       <PaymentElement />
       <button type="submit" disabled={!stripe || loading}>
-        {loading ? "Saving..." : "Save Payment Method"}
+        {loading ? "Saving..." : "Save Card / iDEAL"}
       </button>
-      {message && <p>{message}</p>}
     </form>
   );
 }
 
 export default function PaymentPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [savedPaymentMethod, setSavedPaymentMethod] = useState<string | null>(null);
-  const [paypalSuccess, setPaypalSuccess] = useState(false);
+  const [paypalLoaded, setPaypalLoaded] = useState(false);
 
+  // Create Stripe SetupIntent
   useEffect(() => {
-    // Create setup intent on load
     fetch("/api/payment", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "setup" }),
     })
       .then((res) => res.json())
-      .then((data) => {
-        setClientSecret(data.clientSecret);
-      });
+      .then((data) => setClientSecret(data.clientSecret));
   }, []);
 
-  // Load PayPal buttons
+  // Load PayPal once
   useEffect(() => {
-    if (paypalSuccess) return; // Don't load multiple times
+    if (paypalLoaded) return;
 
     const script = document.createElement("script");
-    script.src = "https://www.paypal.com/sdk/js?client-id=YOUR_PAYPAL_CLIENT_ID&currency=EUR";
+    script.src =
+      "https://www.paypal.com/sdk/js?client-id=test&currency=EUR";
     script.async = true;
     script.onload = () => {
-      window.paypal.Buttons({
-        createOrder: (data: any, actions: any) => {
-          return actions.order.create({
-            purchase_units: [{ amount: { value: "10.00" } }],
-          });
-        },
-        onApprove: (data: any, actions: any) => {
-          return actions.order.capture().then(() => {
-            alert("PayPal payment completed!");
-            setPaypalSuccess(true);
-          });
-        },
-      }).render("#paypal-button-container");
+      window.paypal
+        .Buttons({
+          createOrder: (_: any, actions: any) => {
+            return actions.order.create({
+              purchase_units: [{ amount: { value: "10.00" } }],
+            });
+          },
+          onApprove: (_: any, actions: any) => {
+            return actions.order.capture().then(() => {
+              alert("PayPal payment successful!");
+            });
+          },
+        })
+        .render("#paypal-button-container");
+
+      setPaypalLoaded(true);
     };
+
     document.body.appendChild(script);
-  }, [paypalSuccess]);
+  }, [paypalLoaded]);
 
   return (
-    <div>
-      <h1>Setup Payment Method (Stripe: IDEAL, Mastercard)</h1>
-      {clientSecret ? (
+    <div style={{ maxWidth: 500 }}>
+      <h2>Pay with Card / iDEAL (Stripe)</h2>
+
+      {clientSecret && (
         <Elements stripe={stripePromise} options={{ clientSecret }}>
-          {!savedPaymentMethod ? (
-            <StripeSetupForm
-              clientSecret={clientSecret}
-              onSetupComplete={(pm) => setSavedPaymentMethod(pm)}
-            />
-          ) : (
-            <p>Saved Payment Method ID: {savedPaymentMethod}</p>
-          )}
+          <StripeSetupForm onSetupComplete={(pm) => console.log(pm)} />
         </Elements>
-      ) : (
-        <p>Loading payment form...</p>
       )}
 
+      <hr style={{ margin: "30px 0" }} />
+
+      <h2>Pay with PayPal</h2>
+      <div id="paypal-button-container" />
     </div>
   );
 }
