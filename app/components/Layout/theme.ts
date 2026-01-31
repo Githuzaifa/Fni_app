@@ -192,15 +192,20 @@ const fireTheme = extendTheme({
       },
     },
 
-    Modal: {
+Modal: {
   baseStyle: {
     dialog: {
+      bg: "gray.900", // dark black background
+      color: "black", // text color inside modal
       borderRadius: "md",
     },
     header: {
       borderBottom: "1px solid",
       borderColor: "gray.700",
       color: "orange.300",
+    },
+    body: {
+      color: "black",
     },
     
     footer: {
