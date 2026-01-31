@@ -202,9 +202,6 @@ const fireTheme = extendTheme({
       borderColor: "gray.700",
       color: "orange.300",
     },
-    body: {
-      color: "black",
-    },
     
     footer: {
       borderTop: "1px solid",
