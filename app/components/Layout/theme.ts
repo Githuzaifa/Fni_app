@@ -205,7 +205,7 @@ Modal: {
       color: "orange.300",
     },
     body: {
-      color: "black",
+      color: "white",
     },
     
     footer: {
