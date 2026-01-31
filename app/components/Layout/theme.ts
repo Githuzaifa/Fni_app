@@ -205,6 +205,7 @@ Modal: {
       color: "orange.300",
     },
     body: {
+      bg: "black",
       color: "white",
     },
     
