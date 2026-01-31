@@ -196,7 +196,7 @@ Modal: {
   baseStyle: {
     dialog: {
       bg: "gray.900", // dark black background
-      color: "black", // text color inside modal
+      color: "white", // text color inside modal
       borderRadius: "md",
     },
     header: {
