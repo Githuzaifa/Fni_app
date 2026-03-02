@@ -1,6 +1,11 @@
 // src/app/signup/page.tsx
 
 "use client";
+
+import countries from "i18n-iso-countries";
+import enLocale from "i18n-iso-countries/langs/en.json";
+
+countries.registerLocale(enLocale);
 import { useAuthStore } from "../store/authstore";
 import { useRouter } from "next/navigation";
 import React, { useState, useEffect } from "react";
@@ -45,34 +50,18 @@ export default function SignupPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [nation, setNation] = useState("");
-  const [countries, setCountries] = useState<string[]>([]);
+  const [countryList, setCountries] = useState<string[]>([]);
   const [gamerTagInput, setGamerTagInput] = useState("");
   const [gamerTags, setGamerTags] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [message, setMessage] = useState("");
 
   // Generate all country names dynamically
-  useEffect(() => {
-    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
-
-    const countryCodes = [
-      ...Array.from({ length: 26 }, (_, i) =>
-        String.fromCharCode(65 + i)
-      ),
-    ]
-      .flatMap((first) =>
-        Array.from({ length: 26 }, (_, i) =>
-          first + String.fromCharCode(65 + i)
-        )
-      );
-
-    const countryList = countryCodes
-  .map((code) => regionNames.of(code))
-  .filter((name): name is string => !!name);
-
-    const uniqueCountries = Array.from(new Set(countryList)).sort();
-    setCountries(uniqueCountries);
-  }, []);
+useEffect(() => {
+  const countryObj = countries.getNames("en", { select: "official" });
+  const sortedCountries = Object.values(countryObj).sort();
+  setCountries(sortedCountries);
+}, []);
 
   const addGamerTag = () => {
     if (gamerTagInput.trim() !== "") {
@@ -228,7 +217,7 @@ export default function SignupPage() {
                   value={nation}
                   onChange={(e) => setNation(e.target.value)}
                 >
-                  {countries.map((country) => (
+                  {countryList.map((country) => (
                     <option key={country} value={country}>
                       {country}
                     </option>
