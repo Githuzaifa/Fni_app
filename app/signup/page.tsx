@@ -1,10 +1,9 @@
 // src/app/signup/page.tsx
 
 "use client";
-import { useAuthStore } from "../store/authstore"; // adjust path if needed
-
+import { useAuthStore } from "../store/authstore";
 import { useRouter } from "next/navigation";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Container,
@@ -17,46 +16,96 @@ import {
   Text,
   Link,
   useToast,
+  Select,
+  HStack,
+  Tag,
+  TagLabel,
+  TagCloseButton,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Checkbox,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 
 export default function SignupPage() {
   const router = useRouter();
   const toast = useToast();
-  const [name, setName] = useState("");
+  const { login } = useAuthStore();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [age, setAge] = useState<number | "">("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [nation, setNation] = useState("");
+  const [countries, setCountries] = useState<string[]>([]);
+  const [gamerTagInput, setGamerTagInput] = useState("");
+  const [gamerTags, setGamerTags] = useState<string[]>([]);
+  const [agreed, setAgreed] = useState(false);
   const [message, setMessage] = useState("");
-  const { login } = useAuthStore(); // get login function from store
-  
 
+  // Generate all country names dynamically
+  useEffect(() => {
+    const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const countryCodes = [
+      ...Array.from({ length: 26 }, (_, i) =>
+        String.fromCharCode(65 + i)
+      ),
+    ]
+      .flatMap((first) =>
+        Array.from({ length: 26 }, (_, i) =>
+          first + String.fromCharCode(65 + i)
+        )
+      );
 
+    const countryList = countryCodes
+      .map((code) => regionNames.of(code))
+      .filter((name) => name && name !== code) as string[];
+
+    const uniqueCountries = Array.from(new Set(countryList)).sort();
+    setCountries(uniqueCountries);
+  }, []);
+
+  const addGamerTag = () => {
+    if (gamerTagInput.trim() !== "") {
+      setGamerTags([...gamerTags, gamerTagInput.trim()]);
+      setGamerTagInput("");
+    }
+  };
+
+  const removeGamerTag = (tag: string) => {
+    setGamerTags(gamerTags.filter((t) => t !== tag));
+  };
+
+  const handleSignup = async () => {
     const res = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        name,
+        firstName,
+        lastName,
         age,
         email,
+        username,
         password,
+        gamerTags,
+        nation,
       }),
     });
 
     const data = await res.json();
     setMessage(data.message || "Something went wrong");
 
-    // Optional: clear form on success
     if (res.ok) {
-
       login(data.user);
-      setName("");
-      setAge("");
-      setEmail("");
-      setPassword("");
 
       toast({
         title: "Registration successful",
@@ -67,51 +116,52 @@ export default function SignupPage() {
       });
 
       setTimeout(() => {
-        router.push("/"); // redirect to home
-      }, 3000); // after toast duration
+        router.push("/");
+      }, 3000);
     }
   };
 
+  const handleSubmitClick = (e: React.FormEvent) => {
+    e.preventDefault();
+    onOpen();
+  };
+
   return (
-    <Box py={0} px={0}>
+    <Box>
       <Container
         maxW="container.lg"
-        borderRadius="none"
-        px={0}
-        py={8}
         minH="80vh"
         display="flex"
         alignItems="center"
         justifyContent="center"
-        bg="transparent"
-        boxShadow="none"
       >
-        <Box
-          borderWidth="0px"
-          borderRadius="none"
-          p={[4, 6, 10]}
-          w={["100%", "100%", "100%"]}
-          bg="transparent"
-          boxShadow="none"
-        >
-          <Heading mb={8} textAlign="center" fontSize={["2xl", "3xl", "4xl"]}>
+        <Box w="100%">
+          <Heading mb={8} textAlign="center">
             Sign Up
           </Heading>
 
-          <form onSubmit={handleSignup}>
+          <form onSubmit={handleSubmitClick}>
             <VStack spacing={6} align="stretch">
-              <FormControl id="name" isRequired>
-                <FormLabel>Name</FormLabel>
-                <Input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  size="lg"
-                  width={["100%", "400px", "500px"]}
-                />
-              </FormControl>
 
-              <FormControl id="age" isRequired>
+              <HStack spacing={4}>
+                <FormControl isRequired>
+                  <FormLabel>First Name</FormLabel>
+                  <Input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                  />
+                </FormControl>
+
+                <FormControl isRequired>
+                  <FormLabel>Last Name</FormLabel>
+                  <Input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                  />
+                </FormControl>
+              </HStack>
+
+              <FormControl isRequired>
                 <FormLabel>Age</FormLabel>
                 <Input
                   type="number"
@@ -119,34 +169,74 @@ export default function SignupPage() {
                   onChange={(e) =>
                     setAge(e.target.value === "" ? "" : Number(e.target.value))
                   }
-                  size="lg"
-                  width={["100%", "400px", "500px"]}
                 />
               </FormControl>
 
-              <FormControl id="email" isRequired>
-                <FormLabel>Email address</FormLabel>
+              <FormControl isRequired>
+                <FormLabel>Email</FormLabel>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  size="lg"
-                  width={["100%", "400px", "500px"]}
                 />
               </FormControl>
 
-              <FormControl id="password" isRequired>
+              <FormControl isRequired>
+                <FormLabel>Username (FNI)</FormLabel>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </FormControl>
+
+              <FormControl isRequired>
                 <FormLabel>Password</FormLabel>
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  size="lg"
-                  width={["100%", "400px", "500px"]}
                 />
               </FormControl>
 
-              <Button type="submit" colorScheme="teal" size="lg" w="full">
+              <FormControl>
+                <FormLabel>Gamer Tags</FormLabel>
+                <HStack>
+                  <Input
+                    value={gamerTagInput}
+                    onChange={(e) => setGamerTagInput(e.target.value)}
+                    placeholder="Enter gamer tag"
+                  />
+                  <Button onClick={addGamerTag}>Add</Button>
+                </HStack>
+
+                <HStack mt={3} wrap="wrap">
+                  {gamerTags.map((tag, index) => (
+                    <Tag key={index} borderRadius="full">
+                      <TagLabel>{tag}</TagLabel>
+                      <TagCloseButton
+                        onClick={() => removeGamerTag(tag)}
+                      />
+                    </Tag>
+                  ))}
+                </HStack>
+              </FormControl>
+
+              <FormControl isRequired>
+                <FormLabel>Nation</FormLabel>
+                <Select
+                  placeholder="Select nation"
+                  value={nation}
+                  onChange={(e) => setNation(e.target.value)}
+                >
+                  {countries.map((country) => (
+                    <option key={country} value={country}>
+                      {country}
+                    </option>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <Button type="submit" colorScheme="teal">
                 Sign Up
               </Button>
             </VStack>
@@ -158,20 +248,49 @@ export default function SignupPage() {
             </Text>
           )}
 
-          <Text mt={8} textAlign="center" fontSize="md">
+          <Text mt={8} textAlign="center">
             Already have an account?{" "}
-            <Link
-              as={NextLink}
-              href="/login"
-              color="teal.500"
-              _hover={{ color: "black" }}
-              fontWeight="bold"
-            >
+            <Link as={NextLink} href="/login" color="teal.500" fontWeight="bold">
               Log in
             </Link>
           </Text>
         </Box>
       </Container>
+
+      <Modal isOpen={isOpen} onClose={onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Terms & Conditions</ModalHeader>
+          <ModalBody>
+            <Text mb={4}>
+              By creating an account, you agree to follow platform rules and provide accurate information.
+            </Text>
+
+            <Checkbox
+              isChecked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+            >
+              I have read the terms and agree
+            </Checkbox>
+          </ModalBody>
+
+          <ModalFooter>
+            <Button mr={3} onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              colorScheme="teal"
+              isDisabled={!agreed}
+              onClick={() => {
+                onClose();
+                handleSignup();
+              }}
+            >
+              OK
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Box>
   );
 }
