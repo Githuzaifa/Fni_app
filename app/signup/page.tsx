@@ -67,8 +67,8 @@ export default function SignupPage() {
       );
 
     const countryList = countryCodes
-      .map((code) => regionNames.of(code))
-      .filter((name) => name && name !== code) as string[];
+  .map((code) => regionNames.of(code))
+  .filter((name): name is string => !!name);
 
     const uniqueCountries = Array.from(new Set(countryList)).sort();
     setCountries(uniqueCountries);
