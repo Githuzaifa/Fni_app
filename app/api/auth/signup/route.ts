@@ -9,9 +9,15 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
 
-    const { name, age, email, password, gamerTags } = await req.json();
+    const {firstName,
+        lastName,
+        age,
+        email,
+        username,
+        password,
+        nation} = await req.json();
 
-    if (!name || !age || !email || !password) {
+    if (!firstName || !lastName || !age || !email || !username || !password || !nation) {
       return NextResponse.json(
         { message: "All fields are required" },
         { status: 400 }
@@ -29,11 +35,14 @@ export async function POST(req: Request) {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = await User.create({
-      name,
-      age,
-      email,
+      firstName,
+        lastName,
+        age,
+        email,
+        username,
+        nation,
       password: hashedPassword,
-      gamerTags: gamerTags || {},
+      gamerTags: {},
     });
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET!, {

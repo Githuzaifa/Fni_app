@@ -23,9 +23,6 @@ import {
   useToast,
   Select,
   HStack,
-  Tag,
-  TagLabel,
-  TagCloseButton,
   useDisclosure,
   Modal,
   ModalOverlay,
@@ -51,8 +48,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [nation, setNation] = useState("");
   const [countryList, setCountries] = useState<string[]>([]);
-  const [gamerTagInput, setGamerTagInput] = useState("");
-  const [gamerTags, setGamerTags] = useState<string[]>([]);
   const [agreed, setAgreed] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -63,16 +58,6 @@ useEffect(() => {
   setCountries(sortedCountries);
 }, []);
 
-  const addGamerTag = () => {
-    if (gamerTagInput.trim() !== "") {
-      setGamerTags([...gamerTags, gamerTagInput.trim()]);
-      setGamerTagInput("");
-    }
-  };
-
-  const removeGamerTag = (tag: string) => {
-    setGamerTags(gamerTags.filter((t) => t !== tag));
-  };
 
   const handleSignup = async () => {
     const res = await fetch("/api/auth/signup", {
@@ -85,7 +70,6 @@ useEffect(() => {
         email,
         username,
         password,
-        gamerTags,
         nation,
       }),
     });
@@ -185,29 +169,6 @@ useEffect(() => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
-              </FormControl>
-
-              <FormControl>
-                <FormLabel>Gamer Tags</FormLabel>
-                <HStack>
-                  <Input
-                    value={gamerTagInput}
-                    onChange={(e) => setGamerTagInput(e.target.value)}
-                    placeholder="Enter gamer tag"
-                  />
-                  <Button onClick={addGamerTag}>Add</Button>
-                </HStack>
-
-                <HStack mt={3} wrap="wrap">
-                  {gamerTags.map((tag, index) => (
-                    <Tag key={index} borderRadius="full">
-                      <TagLabel>{tag}</TagLabel>
-                      <TagCloseButton
-                        onClick={() => removeGamerTag(tag)}
-                      />
-                    </Tag>
-                  ))}
-                </HStack>
               </FormControl>
 
               <FormControl isRequired>

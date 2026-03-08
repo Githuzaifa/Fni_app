@@ -107,6 +107,7 @@ export default function Profile() {
         <Box>
           <Text fontWeight="bold">Age:</Text>
           <Text>{user.age}</Text>
+          <Text>{user.password}</Text>
         </Box>
 
         <Box>
