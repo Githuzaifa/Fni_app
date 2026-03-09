@@ -101,7 +101,7 @@ export default function Profile() {
       <VStack spacing={4} align="start" mb={8}>
         <Box>
           <Text fontWeight="bold">Name:</Text>
-          <Text>{user.name}</Text>
+          <Text>{user.firstName + " " + user.lastName + ", " + user.username}</Text>
         </Box>
 
         <Box>

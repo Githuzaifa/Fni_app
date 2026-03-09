@@ -7,11 +7,16 @@ interface GamerTags {
 
 interface User {
   _id?: string;
-  name: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  nation: string;
   age: number;
   email: string;
   password?: string;
   gamerTags: GamerTags;
+
+  
 }
 
 interface AuthState {
