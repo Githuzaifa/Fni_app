@@ -109,7 +109,6 @@ export default function Tournaments() {
   const user = useAuthStore((state) => state.user);
   const totalGames = useAuthStore((state) => state.games);
   const { updateGamerTag } = useAuthStore();
-  const game = totalGames.find(g => g.name === form.game);
 
 
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -152,6 +151,8 @@ export default function Tournaments() {
   );
 
   const openModalForJoin = (tournamentId: number) => {
+
+    const game = totalGames?.find(g => g.name === form.game);
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
     setGamerTag("");
@@ -164,6 +165,8 @@ export default function Tournaments() {
   };
 
   const openModalForCreate = () => {
+
+    const game = totalGames?.find(g => g.name === form.game);
     setCurrentAction("createTournament");
     setGamerTag("");
     if (!game || !user)
@@ -257,6 +260,8 @@ export default function Tournaments() {
 const add_gamerTag = async (gamerTag:string) => {
   try {
 
+    const game = totalGames?.find(g => g.name === form.game);
+
     if (!game) {
       console.error("Game not found");
       return;
@@ -283,6 +288,8 @@ const add_gamerTag = async (gamerTag:string) => {
 };
 
   const handleAddTournament = (creatorGamerTag: string) => {
+
+    const game = totalGames?.find(g => g.name === form.game);
     if (!form.type || !game) return;
 
     const newTournament: Tournament = {
