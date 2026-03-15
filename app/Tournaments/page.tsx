@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "../store/authstore";
 import {
   Box,
   Button,
@@ -77,6 +78,8 @@ const initialTournaments: Tournament[] = [
   },
 ];
 
+  
+
 const games = ["Rocket League", "Valorant", "Apex Legends"];
 const feeTypes = ["Free", "€5", "€10"];
 const playerCounts = ["1v1", "2v2"];
@@ -103,6 +106,11 @@ interface FilterState {
 export default function Tournaments() {
   const router = useRouter();
   const toast = useToast();
+  const user = useAuthStore((state) => state.user);
+  const totalGames = useAuthStore((state) => state.games);
+  const { updateGamerTag } = useAuthStore();
+  const game = totalGames.find(g => g.name === form.game);
+
 
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showCreate, setShowCreate] = useState<boolean>(false);
@@ -147,12 +155,21 @@ export default function Tournaments() {
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
     setGamerTag("");
+    
+    if (!game || !user)
+      return;
+    if ( game.id in user.gamerTags)
+      return;
     onOpen();
   };
 
   const openModalForCreate = () => {
     setCurrentAction("createTournament");
     setGamerTag("");
+    if (!game || !user)
+      return;
+    if ( game.id in user.gamerTags)
+      return;
     onOpen();
   };
 
@@ -235,11 +252,38 @@ export default function Tournaments() {
     setForm({ ...form, type, duration });
     setPrizes(prizeDist);
 
-    openModalForCreate(); // open gamer tag modal for creating tournament
   };
 
+const add_gamerTag = async (gamerTag:string) => {
+  try {
+
+    if (!game) {
+      console.error("Game not found");
+      return;
+    }
+
+    const response = await fetch("/api/users/gamer-tags", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: user?._id,
+        gamerTags: {
+          [game.id] : gamerTag
+        },
+      }),
+    });
+
+    const data = await response.json();
+    
+  } catch (error) {
+    console.error("Error updating gamer tags:", error);
+  }
+};
+
   const handleAddTournament = (creatorGamerTag: string) => {
-    if (!form.type) return;
+    if (!form.type || !game) return;
 
     const newTournament: Tournament = {
       id: allTournaments.length + 1,
@@ -259,6 +303,9 @@ export default function Tournaments() {
     setPrizes([]);
     setSearchQuery("");
 
+    add_gamerTag(creatorGamerTag);
+    
+    updateGamerTag(game.id,creatorGamerTag);
     toast({
       title: `Tournament created by ${creatorGamerTag}`,
       status: "success",
@@ -523,6 +570,7 @@ export default function Tournaments() {
                   </List>
                 </Box>
               )}
+              <Button colorScheme="green" onClick={openModalForCreate}> Create Tournament </Button>
             </VStack>
           </Box>
         )}
