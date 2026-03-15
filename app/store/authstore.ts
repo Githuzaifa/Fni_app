@@ -5,6 +5,12 @@ interface GamerTags {
   [gameName: string]: string;
 }
 
+interface Game {
+  id: string;
+  name: string;
+}
+
+
 interface User {
   _id?: string;
   firstName: string;
@@ -23,6 +29,7 @@ interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
   balance: number;
+  games: Game[];
   login: (user: User) => void;
   logout: () => void;
   updateGamerTag: (gameName: string, tag: string) => void;
@@ -36,6 +43,12 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       user: null,
       balance: 0,
+
+      games: [
+        { id: "rocketLeague", name: "Rocket League" },
+        { id: "apexLegends", name: "Apex Legends" },
+        { id: "valorant", name: "Valorant" },
+      ],
       login: (user) =>
         set({
           isAuthenticated: true,

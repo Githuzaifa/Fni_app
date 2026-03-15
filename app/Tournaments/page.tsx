@@ -19,6 +19,14 @@ import {
   List,
   ListItem,
   useToast,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalCloseButton,
+  useDisclosure,
 } from "@chakra-ui/react";
 
 interface Tournament {
@@ -121,39 +129,79 @@ export default function Tournaments() {
     useState<Tournament[]>(initialTournaments);
 
   // --- Dummy Queue Simulation ---
-  const [queue, setQueue] = useState<{ player: string; tournamentId: number }[]>([]);
+  const [queue, setQueue] = useState<{ player: string; tournamentId: number }[]>(
+    []
+  );
 
-  const handleJoinQueue = (tournamentId: number) => {
-    const newPlayer = { player: `Player${queue.length + 1}`, tournamentId };
-    const updatedQueue = [...queue, newPlayer];
-    setQueue(updatedQueue);
+  // --- Modal for gamer tag ---
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [gamerTag, setGamerTag] = useState("");
+  const [currentAction, setCurrentAction] = useState<
+    "joinQueue" | "createTournament" | null
+  >(null);
+  const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(
+    null
+  );
 
-    toast({
-      title: `${newPlayer.player} joined tournament #${tournamentId}`,
-      status: "info",
-      duration: 2000,
-      isClosable: true,
-    });
+  const openModalForJoin = (tournamentId: number) => {
+    setCurrentAction("joinQueue");
+    setSelectedTournamentId(tournamentId);
+    setGamerTag("");
+    onOpen();
+  };
 
-    // Simulate 1v1 pairing
-    const playersInThisTournament = updatedQueue.filter(
-      (q) => q.tournamentId === tournamentId
-    );
-    if (playersInThisTournament.length % 2 === 0) {
-      const lobbyId = Math.floor(Math.random() * 1000);
+  const openModalForCreate = () => {
+    setCurrentAction("createTournament");
+    setGamerTag("");
+    onOpen();
+  };
+
+  const handleModalOk = () => {
+    if (!gamerTag.trim()) {
       toast({
-        title: `Lobby #${lobbyId} created for ${playersInThisTournament
-          .slice(-2)
-          .map((p) => p.player)
-          .join(" vs ")}`,
-        status: "success",
-        duration: 2500,
+        title: "Please enter a valid gamer tag",
+        status: "error",
+        duration: 2000,
         isClosable: true,
       });
-      setTimeout(() => {
-        router.push(`/lobby/${lobbyId}`);
-      }, 1000);
+      return;
     }
+
+    if (currentAction === "joinQueue" && selectedTournamentId) {
+      const newPlayer = { player: gamerTag, tournamentId: selectedTournamentId };
+      const updatedQueue = [...queue, newPlayer];
+      setQueue(updatedQueue);
+
+      toast({
+        title: `${newPlayer.player} joined tournament #${selectedTournamentId}`,
+        status: "info",
+        duration: 2000,
+        isClosable: true,
+      });
+
+      const playersInThisTournament = updatedQueue.filter(
+        (q) => q.tournamentId === selectedTournamentId
+      );
+      if (playersInThisTournament.length % 2 === 0) {
+        const lobbyId = Math.floor(Math.random() * 1000);
+        toast({
+          title: `Lobby #${lobbyId} created for ${playersInThisTournament
+            .slice(-2)
+            .map((p) => p.player)
+            .join(" vs ")}`,
+          status: "success",
+          duration: 2500,
+          isClosable: true,
+        });
+        setTimeout(() => {
+          router.push(`/lobby/${lobbyId}`);
+        }, 1000);
+      }
+    } else if (currentAction === "createTournament") {
+      handleAddTournament(gamerTag);
+    }
+
+    onClose();
   };
   // ------------------------------
 
@@ -186,9 +234,11 @@ export default function Tournaments() {
 
     setForm({ ...form, type, duration });
     setPrizes(prizeDist);
+
+    openModalForCreate(); // open gamer tag modal for creating tournament
   };
 
-  const handleAddTournament = () => {
+  const handleAddTournament = (creatorGamerTag: string) => {
     if (!form.type) return;
 
     const newTournament: Tournament = {
@@ -208,6 +258,13 @@ export default function Tournaments() {
     setShowCreate(false);
     setPrizes([]);
     setSearchQuery("");
+
+    toast({
+      title: `Tournament created by ${creatorGamerTag}`,
+      status: "success",
+      duration: 2500,
+      isClosable: true,
+    });
   };
 
   const handleApplyFilter = () => {
@@ -280,17 +337,10 @@ export default function Tournaments() {
         </Box>
 
         {showFilter && (
-          <Box
-            borderWidth="1px"
-            borderRadius="lg"
-            p={6}
-            mb={6}
-            boxShadow="md"
-          >
+          <Box borderWidth="1px" borderRadius="lg" p={6} mb={6} boxShadow="md">
             <Heading size="sm" mb={4}>
               Filter Tournaments
             </Heading>
-
             <SimpleGrid columns={[1, 2, 3]} spacing={4}>
               <FormControl>
                 <FormLabel>Game</FormLabel>
@@ -372,11 +422,7 @@ export default function Tournaments() {
               </FormControl>
             </SimpleGrid>
 
-            <Button
-              mt={5}
-              colorScheme="brand"
-              onClick={handleApplyFilter}
-            >
+            <Button mt={5} colorScheme="brand" onClick={handleApplyFilter}>
               Apply Filter
             </Button>
           </Box>
@@ -477,14 +523,9 @@ export default function Tournaments() {
                   </List>
                 </Box>
               )}
-
-              <Button colorScheme="green" onClick={handleAddTournament}>
-                Create Tournament
-              </Button>
             </VStack>
           </Box>
         )}
-
 
         {!showCreate && (
           <VStack spacing={6} align="stretch" w="100%">
@@ -533,7 +574,7 @@ export default function Tournaments() {
                     <Button
                       colorScheme="brand"
                       mt={4}
-                      onClick={() => handleJoinQueue(tournament.id)}
+                      onClick={() => openModalForJoin(tournament.id)}
                     >
                       Join Queue
                     </Button>
@@ -546,7 +587,9 @@ export default function Tournaments() {
                       colorScheme="blue"
                       variant="outline"
                       onClick={() =>
-                        router.push(`/Tournaments/${tournament.id}/leaderboard`)
+                        router.push(
+                          `/Tournaments/${tournament.id}/leaderboard`
+                        )
                       }
                     >
                       View Leaderboard
@@ -556,12 +599,33 @@ export default function Tournaments() {
               </Box>
             ))}
           </VStack>
-        )
-        }
+        )}
 
-
-
+        {/* Gamer Tag Modal */}
+        <Modal isOpen={isOpen} onClose={onClose} isCentered>
+          <ModalOverlay />
+          <ModalContent>
+            <ModalHeader>Enter Gamer Tag</ModalHeader>
+            <ModalCloseButton />
+            <ModalBody>
+              <FormControl>
+                <Input
+                  placeholder="Gamer Tag"
+                  value={gamerTag}
+                  onChange={(e) => setGamerTag(e.target.value)}
+                />
+              </FormControl>
+            </ModalBody>
+            <ModalFooter>
+              <Button colorScheme="blue" mr={3} onClick={handleModalOk}>
+                OK
+              </Button>
+              <Button variant="ghost" onClick={onClose}>
+                Cancel
+              </Button>
+            </ModalFooter>
+          </ModalContent>
+        </Modal>
       </Container>
     </Box>
-  );
-}
+  )}
