@@ -78,8 +78,6 @@ const initialTournaments: Tournament[] = [
   },
 ];
 
-  
-
 const games = ["Rocket League", "Valorant", "Apex Legends"];
 const feeTypes = ["Free", "€5", "€10"];
 const playerCounts = ["1v1", "2v2"];
@@ -103,6 +101,16 @@ interface FilterState {
   duration: string;
 }
 
+// Reset form to initial state
+const initialFormState: FormState = {
+  game: "",
+  players: "",
+  schedule: "",
+  fee: "Free",
+  participants: 8,
+  duration: "",
+};
+
 export default function Tournaments() {
   const router = useRouter();
   const toast = useToast();
@@ -110,18 +118,10 @@ export default function Tournaments() {
   const totalGames = useAuthStore((state) => state.games);
   const { updateGamerTag } = useAuthStore();
 
-
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [showCreate, setShowCreate] = useState<boolean>(false);
   const [showFilter, setShowFilter] = useState<boolean>(false);
-  const [form, setForm] = useState<FormState>({
-    game: "",
-    players: "",
-    schedule: "",
-    fee: "Free",
-    participants: 8,
-    duration: "",
-  });
+  const [form, setForm] = useState<FormState>(initialFormState);
   const [prizes, setPrizes] = useState<number[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     game: "",
@@ -149,81 +149,180 @@ export default function Tournaments() {
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(
     null
   );
+  const [pendingCreateData, setPendingCreateData] = useState<{
+    creatorGamerTag: string;
+  } | null>(null);
 
   const openModalForJoin = (tournamentId: number) => {
+    if (!user) {
+      toast({
+        title: "Please login to join tournaments",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
 
     const game = totalGames?.find(g => g.name === form.game);
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
     setGamerTag("");
     
-    if (!game || !user)
-      return;
-    if ( game.id in user.gamerTags)
-      return;
-    onOpen();
+    // Check if gamer tag already exists
+    if (game && user.gamerTags && game.id in user.gamerTags) {
+      // Gamer tag exists, proceed directly
+      handleJoinQueue(tournamentId, user.gamerTags[game.id]);
+    } else {
+      // Need to enter gamer tag
+      onOpen();
+    }
   };
 
   const openModalForCreate = () => {
+    if (!user) {
+      toast({
+        title: "Please login to create tournaments",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
 
     const game = totalGames?.find(g => g.name === form.game);
     setCurrentAction("createTournament");
     setGamerTag("");
-    if (!game || !user)
-      return;
-    if ( game.id in user.gamerTags)
-      return;
-    onOpen();
+    
+    // Check if gamer tag already exists
+    if (game && user.gamerTags && game.id in user.gamerTags) {
+      // Gamer tag exists, proceed directly
+      handleAddTournament(user.gamerTags[game.id]);
+    } else {
+      // Need to enter gamer tag
+      onOpen();
+    }
   };
 
-  const handleModalOk = () => {
+  const handleJoinQueue = (tournamentId: number, playerGamerTag: string) => {
+    const newPlayer = { player: playerGamerTag, tournamentId };
+    const updatedQueue = [...queue, newPlayer];
+    setQueue(updatedQueue);
+
+    toast({
+      title: "Successfully joined queue!",
+      description: `${playerGamerTag} joined tournament #${tournamentId}`,
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+    });
+
+    const playersInThisTournament = updatedQueue.filter(
+      (q) => q.tournamentId === tournamentId
+    );
+    
+    if (playersInThisTournament.length % 2 === 0) {
+      const lobbyId = Math.floor(Math.random() * 1000);
+      toast({
+        title: "Match found!",
+        description: `Lobby #${lobbyId} created for ${playersInThisTournament
+          .slice(-2)
+          .map((p) => p.player)
+          .join(" vs ")}`,
+        status: "success",
+        duration: 3000,
+        isClosable: true,
+      });
+      setTimeout(() => {
+        router.push(`/lobby/${lobbyId}`);
+      }, 1500);
+    }
+  };
+
+  const handleModalOk = async () => {
     if (!gamerTag.trim()) {
       toast({
-        title: "Please enter a valid gamer tag",
+        title: "Error",
+        description: "Please enter a valid gamer tag",
         status: "error",
-        duration: 2000,
+        duration: 3000,
         isClosable: true,
       });
       return;
     }
 
     if (currentAction === "joinQueue" && selectedTournamentId) {
-      const newPlayer = { player: gamerTag, tournamentId: selectedTournamentId };
-      const updatedQueue = [...queue, newPlayer];
-      setQueue(updatedQueue);
-
-      toast({
-        title: `${newPlayer.player} joined tournament #${selectedTournamentId}`,
-        status: "info",
-        duration: 2000,
-        isClosable: true,
-      });
-
-      const playersInThisTournament = updatedQueue.filter(
-        (q) => q.tournamentId === selectedTournamentId
-      );
-      if (playersInThisTournament.length % 2 === 0) {
-        const lobbyId = Math.floor(Math.random() * 1000);
-        toast({
-          title: `Lobby #${lobbyId} created for ${playersInThisTournament
-            .slice(-2)
-            .map((p) => p.player)
-            .join(" vs ")}`,
-          status: "success",
-          duration: 2500,
-          isClosable: true,
-        });
-        setTimeout(() => {
-          router.push(`/lobby/${lobbyId}`);
-        }, 1000);
+      const success = await addGamerTag(gamerTag);
+      if (success) {
+        handleJoinQueue(selectedTournamentId, gamerTag);
       }
     } else if (currentAction === "createTournament") {
-      handleAddTournament(gamerTag);
+      const success = await addGamerTag(gamerTag);
+      if (success) {
+        handleAddTournament(gamerTag);
+      }
     }
 
     onClose();
   };
-  // ------------------------------
+
+  const addGamerTag = async (gamerTag: string): Promise<boolean> => {
+    try {
+      const game = totalGames?.find(g => g.name === form.game);
+
+      if (!game || !user?._id) {
+        toast({
+          title: "Error",
+          description: "Game or user not found",
+          status: "error",
+          duration: 3000,
+          isClosable: true,
+        });
+        return false;
+      }
+
+      const response = await fetch("/api/users/gamer-tags", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          userId: user._id,
+          gamerTags: {
+            [game.id]: gamerTag
+          },
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        // Update local store
+        updateGamerTag(game.id, gamerTag);
+        
+        toast({
+          title: "Success",
+          description: "Gamer tag added successfully",
+          status: "success",
+          duration: 3000,
+          isClosable: true,
+        });
+        return true;
+      } else {
+        throw new Error(data.error || "Failed to update gamer tag");
+      }
+    } catch (error) {
+      console.error("Error updating gamer tags:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add gamer tag",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return false;
+    }
+  };
 
   const autoDetectType = (
     game: string,
@@ -237,6 +336,18 @@ export default function Tournaments() {
   };
 
   const handleCreate = () => {
+    // Validate form
+    if (!form.game || !form.players || !form.schedule) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+
     const type = autoDetectType(form.game, form.players, form.participants);
     const duration =
       form.game === "Rocket League" &&
@@ -255,42 +366,27 @@ export default function Tournaments() {
     setForm({ ...form, type, duration });
     setPrizes(prizeDist);
 
+    toast({
+      title: "Success",
+      description: "Prize pool preview generated",
+      status: "success",
+      duration: 2000,
+      isClosable: true,
+    });
   };
 
-const add_gamerTag = async (gamerTag:string) => {
-  try {
-
+  const handleAddTournament = (creatorGamerTag: string) => {
     const game = totalGames?.find(g => g.name === form.game);
-
-    if (!game) {
-      console.error("Game not found");
+    if (!form.type || !game) {
+      toast({
+        title: "Error",
+        description: "Invalid tournament data",
+        status: "error",
+        duration: 3000,
+        isClosable: true,
+      });
       return;
     }
-
-    const response = await fetch("/api/users/gamer-tags", {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        userId: user?._id,
-        gamerTags: {
-          [game.id] : gamerTag
-        },
-      }),
-    });
-
-    const data = await response.json();
-    
-  } catch (error) {
-    console.error("Error updating gamer tags:", error);
-  }
-};
-
-  const handleAddTournament = (creatorGamerTag: string) => {
-
-    const game = totalGames?.find(g => g.name === form.game);
-    if (!form.type || !game) return;
 
     const newTournament: Tournament = {
       id: allTournaments.length + 1,
@@ -303,20 +399,22 @@ const add_gamerTag = async (gamerTag:string) => {
       duration: form.duration,
       fee: form.fee,
     };
+    
     const updatedList = [...allTournaments, newTournament];
     setAllTournaments(updatedList);
     setDisplayedTournaments(updatedList);
-    setShowCreate(false);
-    setPrizes([]);
-    setSearchQuery("");
-
-    add_gamerTag(creatorGamerTag);
     
-    updateGamerTag(game.id,creatorGamerTag);
+    // Reset form and UI
+    setForm(initialFormState);
+    setPrizes([]);
+    setShowCreate(false);
+    setSearchQuery("");
+    
     toast({
-      title: `Tournament created by ${creatorGamerTag}`,
+      title: "Tournament Created!",
+      description: `Tournament created by ${creatorGamerTag}`,
       status: "success",
-      duration: 2500,
+      duration: 3000,
       isClosable: true,
     });
   };
@@ -334,6 +432,14 @@ const add_gamerTag = async (gamerTag:string) => {
     setDisplayedTournaments(filtered);
     setShowFilter(false);
     setSearchQuery("");
+    
+    toast({
+      title: "Filters applied",
+      description: `Found ${filtered.length} tournaments`,
+      status: "info",
+      duration: 2000,
+      isClosable: true,
+    });
   };
 
   const resetToAllTournaments = () => {
@@ -341,6 +447,8 @@ const add_gamerTag = async (gamerTag:string) => {
     setShowCreate(false);
     setShowFilter(false);
     setSearchQuery("");
+    setForm(initialFormState);
+    setPrizes([]);
   };
 
   const filteredBySearch = displayedTournaments.filter((t) =>
@@ -374,6 +482,8 @@ const add_gamerTag = async (gamerTag:string) => {
             onClick={() => {
               setShowCreate(true);
               setShowFilter(false);
+              setForm(initialFormState);
+              setPrizes([]);
             }}
           >
             Create Tournament
@@ -489,7 +599,7 @@ const add_gamerTag = async (gamerTag:string) => {
             </Heading>
 
             <VStack spacing={4} align="stretch">
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Game</FormLabel>
                 <Select
                   placeholder="Select game"
@@ -506,7 +616,7 @@ const add_gamerTag = async (gamerTag:string) => {
                 </Select>
               </FormControl>
 
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Player Count</FormLabel>
                 <Select
                   placeholder="1v1 or 2v2"
@@ -527,6 +637,8 @@ const add_gamerTag = async (gamerTag:string) => {
                 <FormLabel>Participants</FormLabel>
                 <Input
                   type="number"
+                  min={2}
+                  max={32}
                   value={form.participants}
                   onChange={(e) =>
                     setForm({ ...form, participants: Number(e.target.value) })
@@ -534,7 +646,7 @@ const add_gamerTag = async (gamerTag:string) => {
                 />
               </FormControl>
 
-              <FormControl>
+              <FormControl isRequired>
                 <FormLabel>Schedule</FormLabel>
                 <Input
                   type="datetime-local"
@@ -566,93 +678,112 @@ const add_gamerTag = async (gamerTag:string) => {
               </Button>
 
               {prizes.length > 0 && (
-                <Box>
-                  <Text fontWeight="bold" mb={2}>
-                    Prize Pool
+                <Box p={4} borderWidth="1px" borderRadius="md" bg="gray.50">
+                  <Text fontWeight="bold" mb={2} fontSize="lg">
+                    🏆 Prize Pool Preview
                   </Text>
-                  <List spacing={1}>
+                  <List spacing={2}>
                     {prizes.map((p, i) => (
-                      <ListItem key={i}>#{i + 1}: €{p}</ListItem>
+                      <ListItem key={i} display="flex" justifyContent="space-between">
+                        <Text>#{i + 1} Place</Text>
+                        <Text fontWeight="bold" color="green.500">€{p}</Text>
+                      </ListItem>
                     ))}
                   </List>
                 </Box>
               )}
-              <Button colorScheme="green" onClick={openModalForCreate}> Create Tournament </Button>
+              
+              <Button 
+                colorScheme="green" 
+                onClick={openModalForCreate}
+                isDisabled={!form.game || !form.players || !form.schedule}
+              >
+                Create Tournament
+              </Button>
             </VStack>
           </Box>
         )}
 
         {!showCreate && (
           <VStack spacing={6} align="stretch" w="100%">
-            {filteredBySearch.map((tournament) => (
-              <Box
-                key={tournament.id}
-                p={6}
-                borderWidth="1px"
-                borderRadius="md"
-                boxShadow="md"
-                w="100%"
-              >
-                <SimpleGrid columns={[1, null, 2]} spacing={4}>
-                  <Stack spacing={2}>
-                    <Heading size="md">{tournament.title}</Heading>
-                    <Text fontSize="sm">
-                      <strong>Game:</strong> {tournament.game}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Start:</strong> {tournament.startTime}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Players:</strong> {tournament.participants}
-                    </Text>
-                    <Text fontSize="sm">
-                      <strong>Duration:</strong> {tournament.duration}
-                    </Text>
-                  </Stack>
-                  <Stack spacing={2} align="flex-end" justify="center">
-                    <HStack spacing={2}>
-                      <Tag
-                        colorScheme={
-                          tournament.type === "Fire" ? "orange" : "blue"
+            {filteredBySearch.length > 0 ? (
+              filteredBySearch.map((tournament) => (
+                <Box
+                  key={tournament.id}
+                  p={6}
+                  borderWidth="1px"
+                  borderRadius="md"
+                  boxShadow="md"
+                  w="100%"
+                  _hover={{ shadow: "lg" }}
+                >
+                  <SimpleGrid columns={[1, null, 2]} spacing={4}>
+                    <Stack spacing={2}>
+                      <Heading size="md">{tournament.title}</Heading>
+                      <Text fontSize="sm">
+                        <strong>Game:</strong> {tournament.game}
+                      </Text>
+                      <Text fontSize="sm">
+                        <strong>Start:</strong> {tournament.startTime}
+                      </Text>
+                      <Text fontSize="sm">
+                        <strong>Players:</strong> {tournament.participants}
+                      </Text>
+                      <Text fontSize="sm">
+                        <strong>Duration:</strong> {tournament.duration}
+                      </Text>
+                    </Stack>
+                    <Stack spacing={2} align="flex-end" justify="center">
+                      <HStack spacing={2}>
+                        <Tag
+                          colorScheme={
+                            tournament.type === "Fire" ? "orange" : "blue"
+                          }
+                        >
+                          {tournament.type} Tournament
+                        </Tag>
+                        <Tag
+                          colorScheme={
+                            tournament.status === "Active" ? "green" : "yellow"
+                          }
+                        >
+                          {tournament.status}
+                        </Tag>
+                      </HStack>
+                      <Button
+                        colorScheme="brand"
+                        mt={4}
+                        onClick={() => openModalForJoin(tournament.id)}
+                      >
+                        Join Queue
+                      </Button>
+                      <Button
+                        mt={2}
+                        _hover={{
+                          bg: "blue.100",
+                          color: "black",
+                        }}
+                        colorScheme="blue"
+                        variant="outline"
+                        onClick={() =>
+                          router.push(
+                            `/Tournaments/${tournament.id}/leaderboard`
+                          )
                         }
                       >
-                        {tournament.type} Tournament
-                      </Tag>
-                      <Tag
-                        colorScheme={
-                          tournament.status === "Active" ? "green" : "yellow"
-                        }
-                      >
-                        {tournament.status}
-                      </Tag>
-                    </HStack>
-                    <Button
-                      colorScheme="brand"
-                      mt={4}
-                      onClick={() => openModalForJoin(tournament.id)}
-                    >
-                      Join Queue
-                    </Button>
-                    <Button
-                      mt={2}
-                      _hover={{
-                        bg: "blue.100",
-                        color: "black",
-                      }}
-                      colorScheme="blue"
-                      variant="outline"
-                      onClick={() =>
-                        router.push(
-                          `/Tournaments/${tournament.id}/leaderboard`
-                        )
-                      }
-                    >
-                      View Leaderboard
-                    </Button>
-                  </Stack>
-                </SimpleGrid>
+                        View Leaderboard
+                      </Button>
+                    </Stack>
+                  </SimpleGrid>
+                </Box>
+              ))
+            ) : (
+              <Box textAlign="center" py={10}>
+                <Text fontSize="lg" color="gray.500">
+                  No tournaments found
+                </Text>
               </Box>
-            ))}
+            )}
           </VStack>
         )}
 
@@ -663,11 +794,15 @@ const add_gamerTag = async (gamerTag:string) => {
             <ModalHeader>Enter Gamer Tag</ModalHeader>
             <ModalCloseButton />
             <ModalBody>
+              <Text mb={4} fontSize="sm" color="gray.600">
+                Please enter your gamer tag for {form.game}
+              </Text>
               <FormControl>
                 <Input
-                  placeholder="Gamer Tag"
+                  placeholder="Enter your gamer tag"
                   value={gamerTag}
                   onChange={(e) => setGamerTag(e.target.value)}
+                  autoFocus
                 />
               </FormControl>
             </ModalBody>
@@ -683,4 +818,5 @@ const add_gamerTag = async (gamerTag:string) => {
         </Modal>
       </Container>
     </Box>
-  )}
+  );
+}
