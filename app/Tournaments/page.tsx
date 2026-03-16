@@ -164,7 +164,9 @@ export default function Tournaments() {
       return;
     }
 
-    const game = totalGames?.find(g => g.name === form.game);
+    const gameName = getGameByTournamentId(tournamentId);
+    const game = totalGames?.find(g => g.name === gameName);
+
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
     setGamerTag("");
@@ -202,6 +204,11 @@ export default function Tournaments() {
       // Need to enter gamer tag
       onOpen();
     }
+  };
+
+  const getGameByTournamentId = (id: number | null): string | undefined => {
+    if (id === null) return undefined;
+    return allTournaments.find(t => t.id === id)?.game;
   };
 
   const handleJoinQueue = (tournamentId: number, playerGamerTag: string) => {
@@ -268,7 +275,14 @@ export default function Tournaments() {
 
   const addGamerTag = async (gamerTag: string): Promise<boolean> => {
     try {
-      const game = totalGames?.find(g => g.name === form.game);
+
+      
+      let game = totalGames?.find(g => g.name === form.game);
+
+      if(currentAction === "joinQueue"){
+        const gameName = getGameByTournamentId(selectedTournamentId);
+        game = totalGames?.find(g => g.name === gameName);
+      }
 
       if (!game || !user?._id) {
         toast({
@@ -678,7 +692,7 @@ export default function Tournaments() {
               </Button>
 
               {prizes.length > 0 && (
-                <Box p={4} borderWidth="1px" borderRadius="md" bg="gray.50">
+                <Box p={4} borderWidth="1px" borderRadius="md" bg="gray.50" bgColor={"transparent"}>
                   <Text fontWeight="bold" mb={2} fontSize="lg">
                     🏆 Prize Pool Preview
                   </Text>
