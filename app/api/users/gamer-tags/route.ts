@@ -8,16 +8,24 @@ export async function PATCH(req: NextRequest) {
 
     const { userId, gamerTags } = await req.json();
 
-    if (!userId || !gamerTags) {
+    if (!userId || !gamerTags || typeof gamerTags !== 'object') {
       return NextResponse.json(
-        { message: "userId and gamerTags are required" },
+        { message: "userId and gamerTags object are required" },
         { status: 400 }
       );
     }
 
+    // Using Record type for better TypeScript support
+    const updateObject: Record<string, string> = {};
+    
+    Object.keys(gamerTags).forEach(gameId => {
+      updateObject[`gamerTags.${gameId}`] = gamerTags[gameId];
+    });
+
+    // Use $set to update/add specific game tags without removing others
     const user = await User.findByIdAndUpdate(
       userId,
-      { gamerTags },
+      { $set: updateObject },
       { new: true }
     );
 
@@ -29,7 +37,10 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Gamer tags updated successfully", gamerTags: user.gamerTags },
+      { 
+        message: "Gamer tags updated successfully", 
+        gamerTags: user.gamerTags 
+      },
       { status: 200 }
     );
   } catch (error) {
