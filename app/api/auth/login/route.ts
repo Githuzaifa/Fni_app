@@ -5,6 +5,7 @@ import cookie from "cookie";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { User } from "../../../models/User";
 
+// In your login API route
 export async function POST(req: Request) {
   try {
     await connectToDatabase();
@@ -46,7 +47,20 @@ export async function POST(req: Request) {
       path: "/",
     });
 
-    const { password: _, ...userWithoutPassword } = user.toObject();
+    // Convert to plain object and handle the Map properly
+    const userObject = user.toObject();
+    const { password: _, ...userWithoutPassword } = userObject;
+    
+    // Ensure gamerTags is properly converted from Map to plain object
+    if (userWithoutPassword.gamerTags) {
+      // If it's a Map, convert it to a plain object
+      if (userWithoutPassword.gamerTags instanceof Map) {
+        userWithoutPassword.gamerTags = Object.fromEntries(userWithoutPassword.gamerTags);
+      }
+    } else {
+      // Ensure gamerTags is at least an empty object
+      userWithoutPassword.gamerTags = {};
+    }
 
     return new NextResponse(
       JSON.stringify({
