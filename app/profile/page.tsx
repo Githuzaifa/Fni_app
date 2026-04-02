@@ -181,7 +181,7 @@ export default function Profile() {
       </Heading>
 
       {/* Average ELO Stat Card */}
-      <Box mb={6}>
+      <Box mb={6} bg="none">
         <Stat
           px={4}
           py={3}
