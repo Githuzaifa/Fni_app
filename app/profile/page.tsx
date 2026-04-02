@@ -113,7 +113,7 @@ export default function Profile() {
     "rgba(26, 32, 44, 0.7)"
   );
   const cardBg = useColorModeValue("gray.50", "gray.600");
-  const statCardBg = useColorModeValue("white", "gray.700");
+  const statCardBg = useColorModeValue("transparent", "transparent");
 
   return (
     <Box
@@ -181,7 +181,7 @@ export default function Profile() {
       </Heading>
 
       {/* Average ELO Stat Card */}
-      <Box mb={6} bg="none">
+      <Box mb={6}>
         <Stat
           px={4}
           py={3}
