@@ -6,6 +6,10 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   age: number;
+  elo: {
+    [gameName: string]: number;
+  };
+  
   email: string;
   username: string; // FNI username
   password: string;
@@ -15,7 +19,7 @@ export interface IUser extends Document {
   gamerTags: {
     [gameName: string]: string;
   };
-}
+} 
 
 const userSchema = new Schema<IUser>({
   firstName: { type: String, required: true },
@@ -26,7 +30,18 @@ const userSchema = new Schema<IUser>({
   password: { type: String, required: true },
   nation: { type: String, required: true },
   stripeCustomerId: { type: String },
-
+  
+  // Add elo field with default values
+  elo: {
+    type: Map,
+    of: Number,
+    default: {
+      rocketLeague: 100,
+      apexLegends: 100,
+      valorant: 100
+    }
+  },
+  
   gamerTags: { type: Map, of: String },
 });
 

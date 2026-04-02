@@ -22,6 +22,12 @@ import {
   AlertDialogContent,
   AlertDialogOverlay,
   useDisclosure,
+  Progress,
+  Stat,
+  StatLabel,
+  StatNumber,
+  StatHelpText,
+  SimpleGrid,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authstore";
@@ -34,6 +40,10 @@ interface PaymentMethod {
     exp_month: number;
     exp_year: number;
   };
+}
+
+interface EloRatings {
+  [gameName: string]: number;
 }
 
 export default function Profile() {
@@ -78,11 +88,32 @@ export default function Profile() {
     );
   }
 
+  // Calculate average ELO
+  const eloRatings: EloRatings = user.elo || {};
+  const eloValues = Object.values(eloRatings);
+  const averageElo = eloValues.length > 0 
+    ? Math.round(eloValues.reduce((sum, elo) => sum + elo, 0) / eloValues.length)
+    : 0;
+
+  // Helper function to get ELO color based on rating
+  const getEloColor = (elo: number) => {
+    if (elo >= 800) return "green";
+    if (elo >= 500) return "blue";
+    if (elo >= 300) return "yellow";
+    return "red";
+  };
+
+  // Helper function to get ELO progress percentage (assuming max 1000 for visualization)
+  const getEloProgress = (elo: number) => {
+    return Math.min((elo / 1000) * 100, 100);
+  };
+
   const bg = useColorModeValue(
     "rgba(255, 255, 255, 0.7)",
     "rgba(26, 32, 44, 0.7)"
   );
   const cardBg = useColorModeValue("gray.50", "gray.600");
+  const statCardBg = useColorModeValue("white", "gray.700");
 
   return (
     <Box
@@ -141,6 +172,91 @@ export default function Profile() {
           )}
         </Box>
       </VStack>
+
+      <Divider mb={6} />
+
+      {/* ELO Ratings Section */}
+      <Heading size="md" mb={4}>
+        ELO Ratings
+      </Heading>
+
+      {/* Average ELO Stat Card */}
+      <Box mb={6}>
+        <Stat
+          px={4}
+          py={3}
+          bg={statCardBg}
+          borderRadius="lg"
+          boxShadow="sm"
+          borderWidth="1px"
+          borderColor={useColorModeValue("gray.200", "gray.600")}
+        >
+          <StatLabel fontSize="lg" fontWeight="bold">
+            Average ELO
+          </StatLabel>
+          <StatNumber fontSize="4xl" fontWeight="bold" color="teal.500">
+            {averageElo}
+          </StatNumber>
+          <StatHelpText>
+            Across {eloValues.length} game{eloValues.length !== 1 ? "s" : ""}
+          </StatHelpText>
+          <Progress
+            value={getEloProgress(averageElo)}
+            size="sm"
+            colorScheme="teal"
+            borderRadius="full"
+            mt={2}
+          />
+        </Stat>
+      </Box>
+
+      {/* Individual Game ELO Cards */}
+      {eloValues.length === 0 ? (
+        <Text fontStyle="italic" color="gray.500" mb={6}>
+          No ELO ratings available.
+        </Text>
+      ) : (
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4} mb={8}>
+          {Object.entries(eloRatings).map(([game, elo]) => (
+            <Box
+              key={game}
+              p={4}
+              bg={statCardBg}
+              borderRadius="lg"
+              boxShadow="sm"
+              borderWidth="1px"
+              borderColor={useColorModeValue("gray.200", "gray.600")}
+              transition="transform 0.2s"
+              _hover={{ transform: "translateY(-2px)", boxShadow: "md" }}
+            >
+              <VStack align="stretch" spacing={2}>
+                <HStack justify="space-between">
+                  <Text fontWeight="bold" fontSize="lg" textTransform="capitalize">
+                    {game}
+                  </Text>
+                  <Badge colorScheme={getEloColor(elo)} fontSize="sm" px={2} py={1}>
+                    {elo >= 800 ? "Expert" : elo >= 500 ? "Advanced" : elo >= 300 ? "Intermediate" : "Beginner"}
+                  </Badge>
+                </HStack>
+                <Stat>
+                  <StatNumber fontSize="3xl" fontWeight="bold" color={`${getEloColor(elo)}.500`}>
+                    {elo}
+                  </StatNumber>
+                </Stat>
+                <Progress
+                  value={getEloProgress(elo)}
+                  size="sm"
+                  colorScheme={getEloColor(elo)}
+                  borderRadius="full"
+                />
+                <Text fontSize="xs" color="gray.500" textAlign="right">
+                  {elo >= 500 ? "Above Average" : "Below Average"}
+                </Text>
+              </VStack>
+            </Box>
+          ))}
+        </SimpleGrid>
+      )}
 
       <Divider mb={6} />
 

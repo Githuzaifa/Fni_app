@@ -4,6 +4,9 @@ import { persist, createJSONStorage } from "zustand/middleware";
 interface GamerTags {
   [gameName: string]: string;
 }
+interface Elo {
+    [gameName: string]: number;
+  }
 
 interface Game {
   id: string;
@@ -21,6 +24,7 @@ interface User {
   email: string;
   password?: string;
   gamerTags: GamerTags;
+  elo: Elo;
 
   
 }
