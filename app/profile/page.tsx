@@ -138,8 +138,6 @@ export default function Profile() {
         <Box>
           <Text fontWeight="bold">Age:</Text>
           <Text>{user.age}</Text>
-          <Text>{user.elo["rocketLeague"]}</Text>
-          <Text>Nigga</Text>
         </Box>
 
         <Box>

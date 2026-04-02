@@ -63,10 +63,15 @@ export async function POST(req: Request) {
     const userObject = newUser.toObject();
     const { password: _, ...userWithoutPassword } = userObject;
 
+    let eloObject = userWithoutPassword.elo;
+if (eloObject instanceof Map) {
+  eloObject = Object.fromEntries(eloObject);
+}
+
     // Ensure elo exists (fallback in case schema default didn't apply)
     const userWithElo = {
       ...userWithoutPassword,
-      elo: userWithoutPassword.elo || {
+      elo: eloObject || {
         rocketLeague: 100,
         apexLegends: 100,
         valorant: 100
