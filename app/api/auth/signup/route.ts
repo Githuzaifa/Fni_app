@@ -36,13 +36,14 @@ export async function POST(req: Request) {
 
     const newUser = await User.create({
       firstName,
-        lastName,
-        age,
-        email,
-        username,
-        nation,
+      lastName,
+      age,
+      email,
+      username,
+      nation,
       password: hashedPassword,
       gamerTags: {},
+      // elo will be added automatically by schema default
     });
 
     const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET!, {
@@ -58,13 +59,24 @@ export async function POST(req: Request) {
       path: "/",
     });
 
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = newUser.toObject();
+    // Convert to object and remove password
+    const userObject = newUser.toObject();
+    const { password: _, ...userWithoutPassword } = userObject;
+
+    // Ensure elo exists (fallback in case schema default didn't apply)
+    const userWithElo = {
+      ...userWithoutPassword,
+      elo: userWithoutPassword.elo || {
+        rocketLeague: 100,
+        apexLegends: 100,
+        valorant: 100
+      }
+    };
 
     return new NextResponse(
       JSON.stringify({
         message: "User registered successfully",
-        user: userWithoutPassword,
+        user: userWithElo,
       }),
       {
         status: 201,
