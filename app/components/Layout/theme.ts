@@ -192,6 +192,16 @@ const fireTheme = extendTheme({
       },
     },
 
+    Box: {
+      baseStyle: {
+    body: {
+      bg: "black", // dark black background
+      color: "white", // text color inside modal
+      borderRadius: "md",
+    }
+  }
+    },
+
 Modal: {
   baseStyle: {
     dialog: {
