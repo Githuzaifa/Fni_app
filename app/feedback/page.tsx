@@ -36,15 +36,15 @@ export default function FeedbackPage() {
       <VStack spacing={6} align="stretch">
         <Box>
           <Text mb={2} fontWeight="semibold">
-            Game suggestions
+            What do you like or dislike about FnI Tournaments?
           </Text>
-          <Input
-            size="lg"              // ✅ bigger default size
-            w="100%"               // ✅ full width inside container
-            h="50px"               // ✅ a bit taller
-            placeholder="Suggest a game you'd like in tournaments"
-            value={gameSuggestion}
-            onChange={(e) => setGameSuggestion(e.target.value)}
+          <Textarea
+            size="lg"              // ✅ larger font & padding
+            w="100%"               // ✅ full width
+            minH="150px"           // ✅ taller by default
+            placeholder="Share your thoughts..."
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
           />
         </Box>
 
@@ -64,20 +64,6 @@ export default function FeedbackPage() {
               />
             ))}
           </HStack>
-        </Box>
-
-        <Box>
-          <Text mb={2} fontWeight="semibold">
-            Comments
-          </Text>
-          <Textarea
-            size="lg"              // ✅ larger font & padding
-            w="100%"               // ✅ full width
-            minH="150px"           // ✅ taller by default
-            placeholder="Share your thoughts or feedback..."
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-          />
         </Box>
 
         <Button colorScheme="blue" onClick={handleSubmit} alignSelf="flex-start">
