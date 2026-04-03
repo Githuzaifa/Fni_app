@@ -144,7 +144,7 @@ function TeamsList({ teams }: { teams: any[] }) {
       _hover={{ transform: "translateY(-2px)", shadow: "lg" }}
     >
       <CardHeader>
-        <Heading size="md">My Teams</Heading>
+        <Heading size="md">My Team</Heading>
       </CardHeader>
 
       <CardBody

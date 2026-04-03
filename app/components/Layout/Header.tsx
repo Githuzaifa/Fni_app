@@ -107,6 +107,12 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
                 title="Admin Tools"
                 themeMode={themeMode}
               />
+
+              <LinkButton
+                url="/teams"
+                title="Party"
+                themeMode={themeMode}
+              />
             </>
           )}
         </VStack>

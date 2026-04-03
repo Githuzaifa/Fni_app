@@ -141,20 +141,7 @@ const RightMenu: React.FC<RightMenuProps> = ({ themeMode }) => {
                   </Button>
                 </NextLink>
 
-                <NextLink href="/teams" passHref legacyBehavior>
-                  <Button
-                    as="a"
-                    variant="ghost"
-                    justifyContent="flex-start"
-                    color={themeMode === "fire" ? "orange.300" : "gray.700"}
-                    _hover={{
-                      color: themeMode === "fire" ? "orange.500" : "teal.500",
-                    }}
-                    onClick={onClose}
-                  >
-                    Teams
-                  </Button>
-                </NextLink>
+                
 
               </VStack>
 
