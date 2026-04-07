@@ -198,7 +198,7 @@ export default function Tournaments() {
         border="2px solid"
         borderColor={isSelected ? 'blue.500' : 'gray.200'}
         borderRadius="lg"
-        bg={isSelected ? 'blue.subtle' : 'transparent'}
+        bg={isSelected ? 'blue.500' : 'transparent'}
         p={4}
         textAlign="center"
         transition="all 0.2s"
