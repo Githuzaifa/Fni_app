@@ -206,7 +206,7 @@ export default function Tournaments() {
         minW="100px"
       >
         <Image
-          src={ `/${game}.png`}
+          src={ `/${game}.jpg`}
           alt={game}
           mx="auto"
           mb={2}
