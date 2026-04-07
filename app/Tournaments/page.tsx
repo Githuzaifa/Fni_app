@@ -28,6 +28,11 @@ import {
   ModalFooter,
   ModalCloseButton,
   useDisclosure,
+  useBreakpointValue,
+  Flex,
+  Wrap,
+  WrapItem,
+  Image,
 } from "@chakra-ui/react";
 
 interface Tournament {
@@ -170,7 +175,7 @@ export default function Tournaments() {
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
     setGamerTag("");
-    
+
     // Check if gamer tag already exists
     if (game && user.gamerTags && game.id in user.gamerTags) {
       // Gamer tag exists, proceed directly
@@ -179,6 +184,75 @@ export default function Tournaments() {
       // Need to enter gamer tag
       onOpen();
     }
+  };
+
+  const GameCard = ({ game, isSelected, onSelect }: {
+    game: string;
+    isSelected: boolean;
+    onSelect: () => void;
+  }) => {
+    return (
+      <Box
+        onClick={onSelect}
+        cursor="pointer"
+        border="2px solid"
+        borderColor={isSelected ? 'blue.500' : 'gray.200'}
+        borderRadius="lg"
+        bg={isSelected ? 'blue.50' : 'white'}
+        p={4}
+        textAlign="center"
+        transition="all 0.2s"
+        _hover={{ shadow: 'md', borderColor: 'gray.300' }}
+        minW="100px"
+      >
+        <Image
+          src={ `/${game}.png`}
+          alt={game}
+          mx="auto"
+          mb={2}
+          boxSize="60px"
+          objectFit="contain"
+          fallbackSrc="/images/games/placeholder.png"
+        />
+        <Text fontWeight="medium" fontSize="sm">
+          {game}
+        </Text>
+      </Box>
+    );
+  };
+
+  // GameSelector component
+  const GameSelector = ({ selectedGame, onSelect }: any) => {
+    const layout = useBreakpointValue({ base: 'vertical', md: 'horizontal' });
+
+    if (layout === 'horizontal') {
+      return (
+        <Flex overflowX="auto" gap={3} pb={2} css={{ scrollbarWidth: 'thin' }}>
+          {games.map((g) => (
+            <GameCard
+              key={g}
+              game={g}
+              isSelected={selectedGame === g}
+              onSelect={() => onSelect(g)}
+            />
+          ))}
+        </Flex>
+      );
+    }
+
+    return (
+      <Wrap spacing={3}>
+        {games.map((g) => (
+          <WrapItem key={g}>
+            <GameCard
+              game={g}
+              isSelected={selectedGame === g}
+              onSelect={() => onSelect(g)}
+            />
+          </WrapItem>
+        ))}
+      </Wrap>
+    );
   };
 
   const openModalForCreate = () => {
@@ -195,7 +269,7 @@ export default function Tournaments() {
     const game = totalGames?.find(g => g.name === form.game);
     setCurrentAction("createTournament");
     setGamerTag("");
-    
+
     // Check if gamer tag already exists
     if (game && user.gamerTags && game.id in user.gamerTags) {
       // Gamer tag exists, proceed directly
@@ -227,7 +301,7 @@ export default function Tournaments() {
     const playersInThisTournament = updatedQueue.filter(
       (q) => q.tournamentId === tournamentId
     );
-    
+
     if (playersInThisTournament.length % 2 === 0) {
       const lobbyId = Math.floor(Math.random() * 1000);
       toast({
@@ -276,10 +350,10 @@ export default function Tournaments() {
   const addGamerTag = async (gamerTag: string): Promise<boolean> => {
     try {
 
-      
+
       let game = totalGames?.find(g => g.name === form.game);
 
-      if(currentAction === "joinQueue"){
+      if (currentAction === "joinQueue") {
         const gameName = getGameByTournamentId(selectedTournamentId);
         game = totalGames?.find(g => g.name === gameName);
       }
@@ -309,11 +383,11 @@ export default function Tournaments() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         // Update local store
         updateGamerTag(game.id, gamerTag);
-        
+
         toast({
           title: "Success",
           description: "Gamer tag added successfully",
@@ -413,17 +487,17 @@ export default function Tournaments() {
       duration: form.duration,
       fee: form.fee,
     };
-    
+
     const updatedList = [...allTournaments, newTournament];
     setAllTournaments(updatedList);
     setDisplayedTournaments(updatedList);
-    
+
     // Reset form and UI
     setForm(initialFormState);
     setPrizes([]);
     setShowCreate(false);
     setSearchQuery("");
-    
+
     toast({
       title: "Tournament Created!",
       description: `Tournament created by ${creatorGamerTag}`,
@@ -446,7 +520,7 @@ export default function Tournaments() {
     setDisplayedTournaments(filtered);
     setShowFilter(false);
     setSearchQuery("");
-    
+
     toast({
       title: "Filters applied",
       description: `Found ${filtered.length} tournaments`,
@@ -615,19 +689,10 @@ export default function Tournaments() {
             <VStack spacing={4} align="stretch">
               <FormControl isRequired>
                 <FormLabel>Game</FormLabel>
-                <Select
-                  placeholder="Select game"
-                  value={form.game}
-                  onChange={(e) =>
-                    setForm({ ...form, game: e.target.value })
-                  }
-                >
-                  {games.map((g) => (
-                    <option key={g} value={g}>
-                      {g}
-                    </option>
-                  ))}
-                </Select>
+                <GameSelector
+                  selectedGame={form.game}
+                  onSelect={(game: string) => setForm({ ...form, game })}
+                />
               </FormControl>
 
               <FormControl isRequired>
@@ -706,9 +771,9 @@ export default function Tournaments() {
                   </List>
                 </Box>
               )}
-              
-              <Button 
-                colorScheme="green" 
+
+              <Button
+                colorScheme="green"
                 onClick={openModalForCreate}
                 isDisabled={!form.game || !form.players || !form.schedule}
               >
