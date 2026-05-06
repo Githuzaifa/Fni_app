@@ -25,8 +25,8 @@ interface User {
   password?: string;
   gamerTags: GamerTags;
   elo: Elo;
-
-  
+  steamUsername?: string;
+  epicUsername?: string;
 }
 
 interface AuthState {

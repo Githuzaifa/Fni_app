@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { connectToDatabase } from "../../../lib/mongodb";
+import { Ban } from "../../../models/Ban";
+import type { BanDuration } from "../../../models/Ban";
+
+export async function GET() {
+  try {
+    await connectToDatabase();
+    const bans = await Ban.find().sort({ createdAt: -1 }).lean();
+    return NextResponse.json({ bans });
+  } catch {
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await connectToDatabase();
+    const body = await req.json();
+    const { fniUsername, steamUsername, epicUsername, reason, issuedBy, duration } = body;
+
+    if (!fniUsername || !reason || !issuedBy || !duration) {
+      return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
+    }
+
+    const validDurations: BanDuration[] = ["1day", "1week", "1month", "1year", "permanent"];
+    if (!validDurations.includes(duration)) {
+      return NextResponse.json({ message: "Invalid duration" }, { status: 400 });
+    }
+
+    const ban = await Ban.create({ fniUsername, steamUsername, epicUsername, reason, issuedBy, duration });
+    return NextResponse.json({ ban }, { status: 201 });
+  } catch {
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}

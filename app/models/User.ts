@@ -9,17 +9,19 @@ export interface IUser extends Document {
   elo: {
     [gameName: string]: number;
   };
-  
+
   email: string;
-  username: string; // FNI username
+  username: string;
   password: string;
   nation: string;
   stripeCustomerId?: string;
+  steamUsername?: string;
+  epicUsername?: string;
 
   gamerTags: {
     [gameName: string]: string;
   };
-} 
+}
 
 const userSchema = new Schema<IUser>({
   firstName: { type: String, required: true },
@@ -30,6 +32,8 @@ const userSchema = new Schema<IUser>({
   password: { type: String, required: true },
   nation: { type: String, required: true },
   stripeCustomerId: { type: String },
+  steamUsername: { type: String },
+  epicUsername: { type: String },
   
   // Add elo field with default values
   elo: {
