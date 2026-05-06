@@ -40,9 +40,9 @@ const userSchema = new Schema<IUser>({
     type: Map,
     of: Number,
     default: {
-      rocketLeague: 100,
-      apexLegends: 100,
-      valorant: 100
+      rocketLeague: 400,
+      apexLegends: 400,
+      valorant: 400
     }
   },
   

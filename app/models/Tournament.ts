@@ -9,11 +9,15 @@ export interface ITournament extends Document {
   currentParticipants: number;
   scheduledAt: Date;
   fee: string;
+  feeType: "per_person" | "per_team";
+  region: string;
   status: "Pending" | "Active" | "Completed" | "Cancelled";
   eloMin?: number;
   eloMax?: number;
   createdBy: string;
   prizes: number[];
+  boosted: boolean;
+  boostedUntil?: Date;
 }
 
 const tournamentSchema = new Schema<ITournament>(
@@ -26,6 +30,8 @@ const tournamentSchema = new Schema<ITournament>(
     currentParticipants: { type: Number, default: 0 },
     scheduledAt: { type: Date, required: true },
     fee: { type: String, default: "Free" },
+    feeType: { type: String, enum: ["per_person", "per_team"], default: "per_person" },
+    region: { type: String, default: "Europe" },
     status: {
       type: String,
       enum: ["Pending", "Active", "Completed", "Cancelled"],
@@ -35,6 +41,8 @@ const tournamentSchema = new Schema<ITournament>(
     eloMax: { type: Number },
     createdBy: { type: String, required: true },
     prizes: { type: [Number], default: [] },
+    boosted: { type: Boolean, default: false },
+    boostedUntil: { type: Date },
   },
   { timestamps: true }
 );
