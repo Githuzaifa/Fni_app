@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
-    const validDurations: BanDuration[] = ["1day", "1week", "1month", "1year", "permanent"];
+    const validDurations: BanDuration[] = ["1hour","6hours","12hours","1day","3days","1week","2weeks","1month","3months","6months","12months","24months","permanent"];
     if (!validDurations.includes(duration)) {
       return NextResponse.json({ message: "Invalid duration" }, { status: 400 });
     }

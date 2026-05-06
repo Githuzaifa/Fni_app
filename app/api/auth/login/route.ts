@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
 
-    const { email, password } = await req.json();
+    const { email, password, rememberMe } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -35,15 +35,18 @@ export async function POST(req: Request) {
       );
     }
 
+    const sessionDuration = rememberMe ? "30d" : "1h";
+    const cookieMaxAge    = rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
+
     const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: "1h",
+      expiresIn: sessionDuration,
     });
 
     const setCookieHeader = cookie.serialize("token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 60 * 60, // 1 hour
+      maxAge: cookieMaxAge,
       path: "/",
     });
 

@@ -74,6 +74,12 @@ function calcExpectedIncome(fee: string, maxParticipants: number, format: string
   return amount * maxParticipants;
 }
 
+function getLockTime(scheduledAt: string, type: "Fire" | "Ice"): Date {
+  const start = new Date(scheduledAt).getTime();
+  const offset = type === "Ice" ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+  return new Date(start - offset);
+}
+
 function buildPrizes(fee: string, type: "Fire" | "Ice" | ""): number[] {
   const count = type === "Ice" ? 10 : 3;
   const base  = feeAmount(fee) * 16; // rough estimate based on default 16 players
@@ -92,6 +98,7 @@ interface Tournament {
   game: string;
   status: "Active" | "Pending" | "Scheduled" | "Cancelled";
   startTime: string;
+  scheduledAtRaw?: string;
   participants: string;
   duration: string;
   fee: string;
@@ -102,6 +109,7 @@ interface Tournament {
   boosted?: boolean;
   boostedUntil?: string;
   createdBy?: string;
+  lockEnabled?: boolean;
 }
 
 interface WizardForm {
@@ -165,7 +173,7 @@ export default function Tournaments() {
   const toast  = useToast();
   const user       = useAuthStore((state) => state.user);
   const balance    = useAuthStore((state) => state.balance);
-  const { setBalance, updateGamerTag } = useAuthStore();
+  const { setBalance, updateGamerTag, setActiveTournament } = useAuthStore();
   const totalGames = useAuthStore((state) => state.games);
 
   // ── tournament list ──
@@ -219,22 +227,24 @@ export default function Tournaments() {
         const data = await res.json();
         if (data.tournaments?.length) {
           const mapped: Tournament[] = data.tournaments.map((t: any) => ({
-            id:           t._id,
-            title:        t.title,
-            type:         t.type,
-            game:         t.game,
-            status:       t.status === "Pending" ? "Scheduled" : t.status,
-            startTime:    new Date(t.scheduledAt).toLocaleString(),
-            participants: `${t.currentParticipants}/${t.maxParticipants}`,
-            duration:     t.type === "Fire" ? "≤ 3 hours" : "3+ hours",
-            fee:          t.fee,
-            feeType:      t.feeType,
-            region:       t.region,
-            eloMin:       t.eloMin,
-            eloMax:       t.eloMax,
-            boosted:      t.boosted,
-            boostedUntil: t.boostedUntil,
-            createdBy:    t.createdBy,
+            id:             t._id,
+            title:          t.title,
+            type:           t.type,
+            game:           t.game,
+            status:         t.status === "Pending" ? "Scheduled" : t.status,
+            startTime:      new Date(t.scheduledAt).toLocaleString(),
+            scheduledAtRaw: t.scheduledAt,
+            participants:   `${t.currentParticipants}/${t.maxParticipants}`,
+            duration:       t.type === "Fire" ? "≤ 3 hours" : "3+ hours",
+            fee:            t.fee,
+            feeType:        t.feeType,
+            region:         t.region,
+            eloMin:         t.eloMin,
+            eloMax:         t.eloMax,
+            boosted:        t.boosted,
+            boostedUntil:   t.boostedUntil,
+            createdBy:      t.createdBy,
+            lockEnabled:    t.lockEnabled ?? true,
           }));
           const combined = [...mapped, ...SEED_TOURNAMENTS];
           setAllTournaments(combined);
@@ -305,9 +315,24 @@ export default function Tournaments() {
 
   const openModalForJoin = (tournamentId: string) => {
     if (!user) { toast({ title: "Please login to join", status: "error", duration: 3000, isClosable: true }); return; }
+
+    if (user.activeTournamentId) {
+      toast({ title: "Already in a tournament", description: "You can only participate in one tournament at a time.", status: "error", duration: 4000, isClosable: true });
+      return;
+    }
+
     const gameName   = getGameByTournamentId(tournamentId);
     const game       = totalGames?.find((g) => g.name === gameName);
     const tournament = allTournaments.find((t) => t.id === tournamentId);
+
+    if (tournament && tournament.lockEnabled && tournament.scheduledAtRaw) {
+      const lockTime = getLockTime(tournament.scheduledAtRaw, tournament.type);
+      if (new Date() >= lockTime) {
+        const lockMsg = tournament.type === "Ice" ? "Ice tournaments lock 24 hours before start." : "Fire tournaments lock 30 minutes before start.";
+        toast({ title: "Registration locked", description: `${lockMsg} No refunds after the lock time.`, status: "error", duration: 4000, isClosable: true });
+        return;
+      }
+    }
 
     if (tournament && game && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
       const userElo = user.elo?.[game.id] ?? 0;
@@ -333,6 +358,7 @@ export default function Tournaments() {
   const handleJoinQueue = (tournamentId: string, playerGamerTag: string) => {
     const updated = [...queue, { player: playerGamerTag, tournamentId }];
     setQueue(updated);
+    setActiveTournament(tournamentId);
     toast({ title: "Joined queue!", description: `${playerGamerTag} joined tournament`, status: "success", duration: 3000, isClosable: true });
     const inThis = updated.filter((q) => q.tournamentId === tournamentId);
     if (inThis.length % 2 === 0) {
@@ -487,10 +513,19 @@ export default function Tournaments() {
     !!user && !!t.createdBy && (t.createdBy === user._id || t.createdBy === user.username);
 
   function TournamentCard({ tournament }: { tournament: Tournament }) {
+    const locked = !!tournament.lockEnabled && !!tournament.scheduledAtRaw &&
+      new Date() >= getLockTime(tournament.scheduledAtRaw, tournament.type);
+    const lockTime = tournament.scheduledAtRaw
+      ? getLockTime(tournament.scheduledAtRaw, tournament.type)
+      : null;
+
     return (
       <Box p={6} borderWidth="1px" borderRadius="md" boxShadow="md" w="100%" _hover={{ shadow: "lg" }} position="relative">
         {tournament.boosted && (
           <Badge colorScheme="yellow" position="absolute" top={3} right={3} fontSize="xs">⚡ BOOSTED</Badge>
+        )}
+        {locked && (
+          <Badge colorScheme="red" position="absolute" top={3} left={3} fontSize="xs">🔒 LOCKED</Badge>
         )}
         <SimpleGrid columns={[1, null, 2]} spacing={4}>
           <Stack spacing={2}>
@@ -501,6 +536,11 @@ export default function Tournaments() {
             <Text fontSize="sm"><strong>Duration:</strong> {tournament.duration}</Text>
             <Text fontSize="sm"><strong>Fee:</strong> {tournament.fee} {tournament.feeType === "per_team" ? "(per team)" : "(per person)"}</Text>
             {tournament.region && <Text fontSize="sm"><strong>Region:</strong> {tournament.region}</Text>}
+            {tournament.lockEnabled && lockTime && (
+              <Text fontSize="xs" color={locked ? "red.400" : "gray.500"}>
+                🔒 Lock{locked ? "ed" : "s"} at {lockTime.toLocaleString()}
+              </Text>
+            )}
           </Stack>
           <Stack spacing={2} align="flex-end" justify="center">
             <HStack spacing={2} flexWrap="wrap" justify="flex-end">
@@ -511,7 +551,9 @@ export default function Tournaments() {
               )}
             </HStack>
 
-            <Button colorScheme="brand" mt={4} onClick={() => openModalForJoin(tournament.id)}>Join Queue</Button>
+            <Button colorScheme="brand" mt={4} isDisabled={locked} onClick={() => openModalForJoin(tournament.id)}>
+              {locked ? "Locked" : "Join Queue"}
+            </Button>
             <Button colorScheme="blue" variant="outline" _hover={{ bg: "blue.100", color: "black" }} onClick={() => router.push(`/Tournaments/${tournament.id}/leaderboard`)}>View Leaderboard</Button>
 
             {/* Creator-only controls */}

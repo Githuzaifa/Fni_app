@@ -32,6 +32,7 @@ import {
   ModalFooter,
   Checkbox,
 } from "@chakra-ui/react";
+import { CheckIcon, CloseIcon } from "@chakra-ui/icons";
 import NextLink from "next/link";
 
 export default function SignupPage() {
@@ -169,6 +170,28 @@ useEffect(() => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
+                {password.length > 0 && (
+                  <VStack align="start" spacing={1} mt={2}>
+                    <HStack spacing={2}>
+                      {password.length >= 8
+                        ? <CheckIcon color="green.400" boxSize={3} />
+                        : <CloseIcon color="red.400" boxSize={3} />
+                      }
+                      <Text fontSize="sm" color={password.length >= 8 ? "green.400" : "red.400"}>
+                        At least 8 characters
+                      </Text>
+                    </HStack>
+                    <HStack spacing={2}>
+                      {/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]/.test(password)
+                        ? <CheckIcon color="green.400" boxSize={3} />
+                        : <CloseIcon color="red.400" boxSize={3} />
+                      }
+                      <Text fontSize="sm" color={/[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]/.test(password) ? "green.400" : "red.400"} >
+                        At least 1 symbol (e.g. !@#$%)
+                      </Text>
+                    </HStack>
+                  </VStack>
+                )}
               </FormControl>
 
               <FormControl isRequired>

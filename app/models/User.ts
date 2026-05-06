@@ -17,6 +17,8 @@ export interface IUser extends Document {
   stripeCustomerId?: string;
   steamUsername?: string;
   epicUsername?: string;
+  isPremium?: boolean;
+  activeTournamentId?: string;
 
   gamerTags: {
     [gameName: string]: string;
@@ -34,6 +36,8 @@ const userSchema = new Schema<IUser>({
   stripeCustomerId: { type: String },
   steamUsername: { type: String },
   epicUsername: { type: String },
+  isPremium: { type: Boolean, default: false },
+  activeTournamentId: { type: String },
   
   // Add elo field with default values
   elo: {

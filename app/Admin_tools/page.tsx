@@ -52,10 +52,18 @@ import { AddIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
 const APPEAL_EMAIL = "support@fni.gg";
 
 const DURATION_OPTIONS = [
+  { value: "1hour",     label: "1 Hour" },
+  { value: "6hours",    label: "6 Hours" },
+  { value: "12hours",   label: "12 Hours" },
   { value: "1day",      label: "1 Day" },
+  { value: "3days",     label: "3 Days" },
   { value: "1week",     label: "1 Week" },
+  { value: "2weeks",    label: "2 Weeks" },
   { value: "1month",    label: "1 Month" },
-  { value: "1year",     label: "1 Year" },
+  { value: "3months",   label: "3 Months" },
+  { value: "6months",   label: "6 Months" },
+  { value: "12months",  label: "12 Months" },
+  { value: "24months",  label: "24 Months" },
   { value: "permanent", label: "Permanent" },
 ];
 
@@ -105,6 +113,16 @@ interface PlayerResult {
   epicUsername?: string;
 }
 
+interface TournamentRecord {
+  _id: string;
+  title: string;
+  game: string;
+  createdBy: string;
+  status: string;
+  scheduledAt?: string;
+  maxParticipants?: number;
+}
+
 export default function AdminTools() {
   const toast = useToast();
   const panelBg = useColorModeValue("whiteAlpha.700", "blackAlpha.500");
@@ -122,6 +140,11 @@ export default function AdminTools() {
   const [playerQuery,   setPlayerQuery]   = useState("");
   const [playerResults, setPlayerResults] = useState<PlayerResult[]>([]);
   const [playerSearchLoading, setPlayerSearchLoading] = useState(false);
+
+  // ---- Tournaments ----
+  const [tournaments, setTournaments] = useState<TournamentRecord[]>([]);
+  const [tournamentsLoading, setTournamentsLoading] = useState(false);
+  const [tournamentsLoaded, setTournamentsLoaded] = useState(false);
 
   // ---- Modals ----
   const banModal    = useDisclosure();
@@ -163,6 +186,20 @@ export default function AdminTools() {
   }, [toast]);
 
   useEffect(() => { fetchBans(); }, [fetchBans]);
+
+  const fetchTournaments = useCallback(async () => {
+    setTournamentsLoading(true);
+    try {
+      const res  = await fetch("/api/admin/tournaments");
+      const data = await res.json();
+      setTournaments(data.tournaments ?? []);
+    } catch {
+      toast({ title: "Failed to load tournaments", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setTournamentsLoading(false);
+      setTournamentsLoaded(true);
+    }
+  }, [toast]);
 
   // ---- Player search ----
   useEffect(() => {
@@ -246,6 +283,22 @@ export default function AdminTools() {
     noticeModal.onOpen();
   }
 
+  async function deleteTournament(id: string) {
+    try {
+      await fetch(`/api/admin/tournaments/${id}`, { method: "DELETE" });
+      setTournaments((prev) => prev.filter((t) => t._id !== id));
+      setAudit((prev) => [{ id: `a${Date.now()}`, timestamp: new Date().toISOString().slice(0, 10), action: `Tournament deleted by admin` }, ...prev]);
+      toast({ title: "Tournament deleted", status: "info", duration: 2000, isClosable: true });
+    } catch {
+      toast({ title: "Failed to delete tournament", status: "error", duration: 3000, isClosable: true });
+    }
+  }
+
+  function banGM(gmUsername: string) {
+    setBanForm({ fniUsername: gmUsername, steamUsername: "", epicUsername: "", duration: "1week", reason: "GM misconduct", issuedBy: "Admin" });
+    banModal.onOpen();
+  }
+
   // ---- UI ----
   return (
     <Box p={6} width="80%" marginLeft={200} minH="100vh">
@@ -264,6 +317,7 @@ export default function AdminTools() {
           <TabList mb={4}>
             <Tab>Ban Management</Tab>
             <Tab>Player Search</Tab>
+            <Tab onClick={() => { if (!tournamentsLoaded) fetchTournaments(); }}>Tournaments</Tab>
             <Tab>Tickets</Tab>
             <Tab>Games</Tab>
             <Tab>Audit / Logs</Tab>
@@ -356,6 +410,63 @@ export default function AdminTools() {
 
               {!playerSearchLoading && playerQuery && playerResults.length === 0 && (
                 <Text color="gray.500" fontStyle="italic">No players found.</Text>
+              )}
+            </TabPanel>
+
+            {/* ---- TOURNAMENTS ---- */}
+            <TabPanel>
+              <HStack mb={4}>
+                <Heading size="md">All Tournaments</Heading>
+                <Spacer />
+                <Button size="sm" onClick={fetchTournaments} isLoading={tournamentsLoading}>Refresh</Button>
+              </HStack>
+
+              {tournamentsLoading ? (
+                <Spinner />
+              ) : !tournamentsLoaded ? (
+                <Text color="gray.500" fontStyle="italic">Click the Tournaments tab to load.</Text>
+              ) : tournaments.length === 0 ? (
+                <Text color="gray.500" fontStyle="italic">No tournaments found.</Text>
+              ) : (
+                <Box overflowX="auto">
+                  <Table variant="simple" size="sm">
+                    <Thead>
+                      <Tr>
+                        <Th>Title</Th>
+                        <Th>Game</Th>
+                        <Th>Created By (GM)</Th>
+                        <Th>Status</Th>
+                        <Th>Scheduled</Th>
+                        <Th>Max</Th>
+                        <Th>Actions</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {tournaments.map((t) => (
+                        <Tr key={t._id}>
+                          <Td fontWeight="bold">{t.title}</Td>
+                          <Td>{t.game}</Td>
+                          <Td>{t.createdBy}</Td>
+                          <Td>
+                            <Badge colorScheme={
+                              t.status === "Open" ? "green" :
+                              t.status === "Cancelled" ? "red" :
+                              t.status === "In Progress" ? "orange" : "gray"
+                            }>{t.status}</Badge>
+                          </Td>
+                          <Td fontSize="xs">{t.scheduledAt ? new Date(t.scheduledAt).toLocaleDateString() : "—"}</Td>
+                          <Td>{t.maxParticipants ?? "—"}</Td>
+                          <Td>
+                            <HStack spacing={1}>
+                              <Button size="xs" colorScheme="orange" onClick={() => banGM(t.createdBy)}>Ban GM</Button>
+                              <IconButton icon={<DeleteIcon />} aria-label="Delete tournament" size="xs" colorScheme="red" variant="ghost" onClick={() => deleteTournament(t._id)} />
+                            </HStack>
+                          </Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </Box>
               )}
             </TabPanel>
 

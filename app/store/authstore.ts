@@ -27,6 +27,8 @@ interface User {
   elo: Elo;
   steamUsername?: string;
   epicUsername?: string;
+  isPremium?: boolean;
+  activeTournamentId?: string | null;
 }
 
 interface AuthState {
@@ -38,7 +40,7 @@ interface AuthState {
   logout: () => void;
   updateGamerTag: (gameName: string, tag: string) => void;
   setBalance: (amount: number) => void;
-
+  setActiveTournament: (id: string | null) => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -85,6 +87,11 @@ export const useAuthStore = create<AuthState>()(
           };
         }),
         setBalance: (amount) => set({ balance: amount }),
+
+        setActiveTournament: (id) =>
+          set((state) => ({
+            user: state.user ? { ...state.user, activeTournamentId: id } : null,
+          })),
 
     }),
 

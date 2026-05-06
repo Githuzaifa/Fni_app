@@ -17,6 +17,7 @@ import {
   Text,
   Link,
   useToast,
+  Checkbox,
 } from "@chakra-ui/react";
 import NextLink from "next/link";
 
@@ -25,9 +26,10 @@ export default function LoginPage() {
   const toast = useToast();
   const { login } = useAuthStore();
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
+  const [message, setMessage]     = useState("");
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +37,7 @@ export default function LoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, rememberMe }),
     });
 
     const data = await res.json();
@@ -118,6 +120,13 @@ export default function LoginPage() {
                   width={["100%", "400px", "500px"]}
                 />
               </FormControl>
+
+              <Checkbox
+                isChecked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              >
+                Stay logged in for 30 days
+              </Checkbox>
 
               <Button type="submit" colorScheme="teal" size="lg" w="full">
                 Log In

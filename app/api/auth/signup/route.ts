@@ -24,6 +24,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const PASSWORD_RE = /^(?=.*[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]).{8,}$/;
+    if (!PASSWORD_RE.test(password)) {
+      return NextResponse.json(
+        { message: "Password must be at least 8 characters and contain at least 1 symbol (e.g. !@#$%)" },
+        { status: 400 }
+      );
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return NextResponse.json(

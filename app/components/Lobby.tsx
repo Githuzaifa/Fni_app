@@ -32,6 +32,7 @@ import {
   Alert,
   AlertIcon,
 } from "@chakra-ui/react";
+import { useAuthStore } from "../store/authstore";
 import ScreenShare from "./ScreenShare";
 import ChatBox from "./ChatBox";
 
@@ -45,26 +46,42 @@ interface LobbyPlayer {
   steamUsername: string;
   epicUsername: string;
   status: "Active" | "Kicked";
+  isPremium?: boolean;
 }
 
 const DURATION_OPTIONS = [
-  { value: "1day",      label: "1 Day" },
-  { value: "1week",     label: "1 Week" },
-  { value: "1month",    label: "1 Month" },
-  { value: "1year",     label: "1 Year" },
+  { value: "1hour",    label: "1 Hour" },
+  { value: "6hours",   label: "6 Hours" },
+  { value: "12hours",  label: "12 Hours" },
+  { value: "1day",     label: "1 Day" },
+  { value: "3days",    label: "3 Days" },
+  { value: "1week",    label: "1 Week" },
+  { value: "2weeks",   label: "2 Weeks" },
+  { value: "1month",   label: "1 Month" },
+  { value: "3months",  label: "3 Months" },
+  { value: "6months",  label: "6 Months" },
+  { value: "12months", label: "12 Months" },
+  { value: "24months", label: "24 Months" },
   { value: "permanent", label: "Permanent" },
 ];
 
 // Simulated roster — replaced by real WebSocket/API data in production
 const MOCK_PLAYERS: LobbyPlayer[] = [
-  { fniUsername: "Rat",       steamUsername: "Yoda",       epicUsername: "YodaEpic",    status: "Active" },
-  { fniUsername: "BladeX",    steamUsername: "BladeXSteam", epicUsername: "BladeEpic",   status: "Active" },
-  { fniUsername: "ShadowFox", steamUsername: "Shadow99",   epicUsername: "ShadowFoxEG", status: "Active" },
+  { fniUsername: "Rat",       steamUsername: "Yoda",        epicUsername: "YodaEpic",    status: "Active", isPremium: true },
+  { fniUsername: "BladeX",    steamUsername: "BladeXSteam", epicUsername: "BladeEpic",   status: "Active", isPremium: false },
+  { fniUsername: "ShadowFox", steamUsername: "Shadow99",    epicUsername: "ShadowFoxEG", status: "Active", isPremium: false },
 ];
+
+function displayName(username: string, isPremium?: boolean, isGMRole?: boolean): string {
+  if (isPremium && isGMRole) return `(Legend) GM ${username}`;
+  if (isPremium) return `(Legend) ${username}`;
+  return username;
+}
 
 export default function Lobby({ isGM, lobbyId }: Props) {
   const toast    = useToast();
   const banModal = useDisclosure();
+  const currentUser = useAuthStore((state) => state.user);
 
   const [players, setPlayers]       = useState<LobbyPlayer[]>(MOCK_PLAYERS);
   const [selectedPlayer, setSelected] = useState<LobbyPlayer | null>(null);
@@ -134,7 +151,10 @@ export default function Lobby({ isGM, lobbyId }: Props) {
       boxShadow="lg"
     >
       <Heading size="lg" textAlign="center" color="teal.300">
-        Lobby: {lobbyId} {isGM ? "(Game Master)" : "(Player)"}
+        Lobby: {lobbyId}{" "}
+        {isGM
+          ? `— ${displayName(currentUser?.username ?? "GM", currentUser?.isPremium, true)}`
+          : currentUser ? `— ${displayName(currentUser.username, currentUser.isPremium)}` : "(Player)"}
       </Heading>
       <Divider borderColor="gray.700" />
 
@@ -180,7 +200,9 @@ export default function Lobby({ isGM, lobbyId }: Props) {
                     <Td>
                       <HStack>
                         <Avatar size="xs" name={p.fniUsername} />
-                        <Text fontWeight="bold">{p.fniUsername}</Text>
+                        <Text fontWeight="bold">
+                          {displayName(p.fniUsername, p.isPremium)}
+                        </Text>
                       </HStack>
                     </Td>
                     <Td color="gray.300">{p.steamUsername}</Td>
@@ -211,6 +233,18 @@ export default function Lobby({ isGM, lobbyId }: Props) {
             <AlertIcon />
             Real-time player roster requires WebSocket integration. Above roster is lobby-session data.
           </Alert>
+
+          {/* GM Rules & Tips */}
+          <Box mt={5} p={4} borderRadius="md" borderWidth="1px" borderColor="yellow.600" bg="yellow.900">
+            <Text fontWeight="bold" color="yellow.300" mb={2}>📋 GM Rules &amp; Tips</Text>
+            <VStack align="start" spacing={1} fontSize="sm" color="gray.200">
+              <Text>🎥 Set a stream delay when broadcasting to prevent cheating.</Text>
+              <Text>🚫 No inappropriate content — streams and chat are monitored.</Text>
+              <Text>📣 Promote your tournament via forums and social media to attract the right audience.</Text>
+              <Text>⚠️ Banning players without a valid reason is <strong>forbidden</strong> and can result in a ban on your own account. Always state the reason clearly.</Text>
+              <Text>📧 Banned players can appeal via the FnI support email. Direct them there if needed.</Text>
+            </VStack>
+          </Box>
         </Box>
       )}
 

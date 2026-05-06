@@ -18,6 +18,7 @@ export interface ITournament extends Document {
   prizes: number[];
   boosted: boolean;
   boostedUntil?: Date;
+  lockEnabled: boolean;
 }
 
 const tournamentSchema = new Schema<ITournament>(
@@ -43,6 +44,7 @@ const tournamentSchema = new Schema<ITournament>(
     prizes: { type: [Number], default: [] },
     boosted: { type: Boolean, default: false },
     boostedUntil: { type: Date },
+    lockEnabled: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

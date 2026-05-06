@@ -2,14 +2,15 @@ import { NextResponse } from "next/server";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { Tournament } from "../../../models/Tournament";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     await connectToDatabase();
+    const { id } = await params;
     const { action } = await req.json();
 
     if (action === "cancel") {
       const tournament = await Tournament.findByIdAndUpdate(
-        params.id,
+        id,
         { status: "Cancelled" },
         { new: true }
       );
@@ -20,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (action === "boost") {
       const boostedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
       const tournament = await Tournament.findByIdAndUpdate(
-        params.id,
+        id,
         { boosted: true, boostedUntil },
         { new: true }
       );
