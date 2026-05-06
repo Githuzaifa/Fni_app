@@ -53,13 +53,19 @@ export async function POST(req: Request) {
     
     // Ensure gamerTags is properly converted from Map to plain object
     if (userWithoutPassword.gamerTags) {
-      // If it's a Map, convert it to a plain object
       if (userWithoutPassword.gamerTags instanceof Map) {
         userWithoutPassword.gamerTags = Object.fromEntries(userWithoutPassword.gamerTags);
       }
     } else {
-      // Ensure gamerTags is at least an empty object
       userWithoutPassword.gamerTags = {};
+    }
+
+    // Ensure elo is properly converted from Map to plain object
+    if (userWithoutPassword.elo instanceof Map) {
+      userWithoutPassword.elo = Object.fromEntries(userWithoutPassword.elo);
+    }
+    if (!userWithoutPassword.elo) {
+      userWithoutPassword.elo = { rocketLeague: 100, apexLegends: 100, valorant: 100 };
     }
 
     return new NextResponse(

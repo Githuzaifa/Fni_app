@@ -33,6 +33,7 @@ import {
   Wrap,
   WrapItem,
   Image,
+  FormHelperText,
 } from "@chakra-ui/react";
 
 interface Tournament {
@@ -45,6 +46,8 @@ interface Tournament {
   participants: string;
   duration: string;
   fee: string;
+  eloMin?: number;
+  eloMax?: number;
 }
 
 const initialTournaments: Tournament[] = [
@@ -96,6 +99,8 @@ interface FormState {
   participants: number;
   duration: string;
   type?: "Fire" | "Ice";
+  eloMin: number | "";
+  eloMax: number | "";
 }
 
 interface FilterState {
@@ -104,6 +109,7 @@ interface FilterState {
   availability: string;
   fee: string;
   duration: string;
+  eloTier: string;
 }
 
 // Reset form to initial state
@@ -114,6 +120,8 @@ const initialFormState: FormState = {
   fee: "Free",
   participants: 8,
   duration: "",
+  eloMin: "",
+  eloMax: "",
 };
 
 export default function Tournaments() {
@@ -134,6 +142,7 @@ export default function Tournaments() {
     availability: "",
     fee: "",
     duration: "",
+    eloTier: "",
   });
   const [allTournaments, setAllTournaments] =
     useState<Tournament[]>(initialTournaments);
@@ -154,10 +163,6 @@ export default function Tournaments() {
   const [selectedTournamentId, setSelectedTournamentId] = useState<number | null>(
     null
   );
-  const [pendingCreateData, setPendingCreateData] = useState<{
-    creatorGamerTag: string;
-  } | null>(null);
-
   const openModalForJoin = (tournamentId: number) => {
     if (!user) {
       toast({
@@ -171,6 +176,24 @@ export default function Tournaments() {
 
     const gameName = getGameByTournamentId(tournamentId);
     const game = totalGames?.find(g => g.name === gameName);
+    const tournament = allTournaments.find(t => t.id === tournamentId);
+
+    // ELO restriction check
+    if (tournament && game && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
+      const userElo = user.elo?.[game.id] ?? 0;
+      const min = tournament.eloMin ?? 0;
+      const max = tournament.eloMax ?? Infinity;
+      if (userElo < min || userElo > max) {
+        toast({
+          title: "ELO Requirement Not Met",
+          description: `Your ${gameName} ELO is ${userElo}. This tournament requires ${min}–${max === Infinity ? "no upper limit" : max}.`,
+          status: "error",
+          duration: 4000,
+          isClosable: true,
+        });
+        return;
+      }
+    }
 
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);
@@ -486,6 +509,8 @@ export default function Tournaments() {
       participants: `${form.participants}/16`,
       duration: form.duration,
       fee: form.fee,
+      eloMin: form.eloMin !== "" ? Number(form.eloMin) : undefined,
+      eloMax: form.eloMax !== "" ? Number(form.eloMax) : undefined,
     };
 
     const updatedList = [...allTournaments, newTournament];
@@ -507,6 +532,16 @@ export default function Tournaments() {
     });
   };
 
+  const eloTierCheck = (t: Tournament) => {
+    if (!filters.eloTier) return true;
+    const tMin = t.eloMin ?? 0;
+    if (filters.eloTier === "beginner") return tMin < 300;
+    if (filters.eloTier === "intermediate") return tMin >= 300 && tMin < 500;
+    if (filters.eloTier === "advanced") return tMin >= 500 && tMin < 800;
+    if (filters.eloTier === "expert") return tMin >= 800;
+    return true;
+  };
+
   const handleApplyFilter = () => {
     const filtered = allTournaments.filter((t) => {
       return (
@@ -514,7 +549,8 @@ export default function Tournaments() {
         (!filters.type || t.type === filters.type) &&
         (!filters.availability || t.status === filters.availability) &&
         (!filters.fee || t.fee === filters.fee) &&
-        (!filters.duration || t.duration === filters.duration)
+        (!filters.duration || t.duration === filters.duration) &&
+        eloTierCheck(t)
       );
     });
     setDisplayedTournaments(filtered);
@@ -672,6 +708,22 @@ export default function Tournaments() {
                   ))}
                 </Select>
               </FormControl>
+
+              <FormControl>
+                <FormLabel>ELO Tier</FormLabel>
+                <Select
+                  value={filters.eloTier}
+                  onChange={(e) =>
+                    setFilters({ ...filters, eloTier: e.target.value })
+                  }
+                >
+                  <option value="">All</option>
+                  <option value="beginner">Beginner (0–299)</option>
+                  <option value="intermediate">Intermediate (300–499)</option>
+                  <option value="advanced">Advanced (500–799)</option>
+                  <option value="expert">Expert (800+)</option>
+                </Select>
+              </FormControl>
             </SimpleGrid>
 
             <Button mt={5} colorScheme="brand" onClick={handleApplyFilter}>
@@ -752,6 +804,34 @@ export default function Tournaments() {
                 </Select>
               </FormControl>
 
+              <FormControl>
+                <FormLabel>ELO Restriction (Optional)</FormLabel>
+                <HStack spacing={3}>
+                  <Input
+                    type="number"
+                    placeholder="Min ELO"
+                    min={0}
+                    max={9999}
+                    value={form.eloMin}
+                    onChange={(e) =>
+                      setForm({ ...form, eloMin: e.target.value === "" ? "" : Number(e.target.value) })
+                    }
+                  />
+                  <Text flexShrink={0}>–</Text>
+                  <Input
+                    type="number"
+                    placeholder="Max ELO"
+                    min={0}
+                    max={9999}
+                    value={form.eloMax}
+                    onChange={(e) =>
+                      setForm({ ...form, eloMax: e.target.value === "" ? "" : Number(e.target.value) })
+                    }
+                  />
+                </HStack>
+                <FormHelperText>Leave both empty to allow all ELO levels</FormHelperText>
+              </FormControl>
+
               <Button colorScheme="blue" onClick={handleCreate}>
                 Preview Prize Pool
               </Button>
@@ -813,7 +893,7 @@ export default function Tournaments() {
                       </Text>
                     </Stack>
                     <Stack spacing={2} align="flex-end" justify="center">
-                      <HStack spacing={2}>
+                      <HStack spacing={2} flexWrap="wrap" justify="flex-end">
                         <Tag
                           colorScheme={
                             tournament.type === "Fire" ? "orange" : "blue"
@@ -828,6 +908,11 @@ export default function Tournaments() {
                         >
                           {tournament.status}
                         </Tag>
+                        {(tournament.eloMin !== undefined || tournament.eloMax !== undefined) && (
+                          <Tag colorScheme="purple">
+                            ELO {tournament.eloMin ?? 0}–{tournament.eloMax ?? "∞"}
+                          </Tag>
+                        )}
                       </HStack>
                       <Button
                         colorScheme="brand"
