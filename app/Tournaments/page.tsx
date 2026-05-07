@@ -355,16 +355,31 @@ export default function Tournaments() {
     }
   };
 
-  const handleJoinQueue = (tournamentId: string, playerGamerTag: string) => {
-    const updated = [...queue, { player: playerGamerTag, tournamentId }];
-    setQueue(updated);
-    setActiveTournament(tournamentId);
-    toast({ title: "Joined queue!", description: `${playerGamerTag} joined tournament`, status: "success", duration: 3000, isClosable: true });
-    const inThis = updated.filter((q) => q.tournamentId === tournamentId);
-    if (inThis.length % 2 === 0) {
-      const lobbyId = Math.floor(Math.random() * 1000);
-      toast({ title: "Match found!", description: `Lobby #${lobbyId} ready`, status: "success", duration: 3000, isClosable: true });
-      setTimeout(() => router.push(`/lobby/${lobbyId}`), 1500);
+  const handleJoinQueue = async (tournamentId: string, playerGamerTag: string) => {
+    try {
+      const res  = await fetch(`/api/tournaments/${tournamentId}/join`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ gamerTag: playerGamerTag }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.message ?? "Failed to join", status: "error", duration: 4000, isClosable: true });
+        return;
+      }
+      if (data.walletBalance !== undefined) setBalance(data.walletBalance);
+      setActiveTournament(tournamentId);
+      const updated = [...queue, { player: playerGamerTag, tournamentId }];
+      setQueue(updated);
+      toast({ title: "Joined queue!", description: `${playerGamerTag} joined tournament`, status: "success", duration: 3000, isClosable: true });
+      const inThis = updated.filter((q) => q.tournamentId === tournamentId);
+      if (inThis.length % 2 === 0) {
+        const lobbyId = Math.floor(Math.random() * 1000);
+        toast({ title: "Match found!", description: `Lobby #${lobbyId} ready`, status: "success", duration: 3000, isClosable: true });
+        setTimeout(() => router.push(`/lobby/${lobbyId}`), 1500);
+      }
+    } catch {
+      toast({ title: "Network error — could not join", status: "error", duration: 3000, isClosable: true });
     }
   };
 

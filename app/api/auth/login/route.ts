@@ -38,9 +38,11 @@ export async function POST(req: Request) {
     const sessionDuration = rememberMe ? "30d" : "1h";
     const cookieMaxAge    = rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET!, {
-      expiresIn: sessionDuration,
-    });
+    const token = jwt.sign(
+      { userId: user._id, role: user.role ?? "player" },
+      process.env.JWT_SECRET!,
+      { expiresIn: sessionDuration }
+    );
 
     const setCookieHeader = cookie.serialize("token", token, {
       httpOnly: true,

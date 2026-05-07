@@ -54,9 +54,11 @@ export async function POST(req: Request) {
       // elo will be added automatically by schema default
     });
 
-    const token = jwt.sign({ userId: newUser._id }, process.env.JWT_SECRET!, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { userId: newUser._id, role: "player" },
+      process.env.JWT_SECRET!,
+      { expiresIn: "1h" }
+    );
 
     // Set cookie for authentication
     const setCookieHeader = cookie.serialize("token", token, {

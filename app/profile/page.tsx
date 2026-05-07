@@ -28,6 +28,7 @@ import {
   StatNumber,
   StatHelpText,
   SimpleGrid,
+  useToast,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authstore";
@@ -46,12 +47,21 @@ interface EloRatings {
   [gameName: string]: number;
 }
 
+const ROLE_COLORS: Record<string, string> = {
+  player: "gray", gm: "orange", moderator: "purple", admin: "red",
+};
+const ROLE_LABELS: Record<string, string> = {
+  player: "Player", gm: "Game Master", moderator: "Moderator", admin: "Admin",
+};
+
 export default function Profile() {
   const user = useAuthStore((state) => state.user);
-  const { logout } = useAuthStore();
+  const { logout, login } = useAuthStore();
+  const toast = useToast();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [upgradingGM, setUpgradingGM] = useState(false);
 
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -126,7 +136,55 @@ export default function Profile() {
       borderRadius="md"
       backdropFilter="saturate(180%) blur(10px)"
     >
-      <Heading mb={6}>Your Profile</Heading>
+      <HStack mb={6} justify="space-between" flexWrap="wrap" gap={3}>
+        <Heading>Your Profile</Heading>
+        <Badge
+          colorScheme={ROLE_COLORS[user.role ?? "player"]}
+          fontSize="md"
+          px={3}
+          py={1}
+          borderRadius="full"
+        >
+          {ROLE_LABELS[user.role ?? "player"]}
+        </Badge>
+      </HStack>
+
+      {/* GM Upgrade */}
+      {(user.role === "player" || !user.role) && (
+        <Alert status="info" mb={6} borderRadius="md">
+          <AlertIcon />
+          <Box flex="1">
+            <Text fontWeight="bold">Want to host tournaments?</Text>
+            <Text fontSize="sm">Upgrade to Game Master to create and manage your own tournaments.</Text>
+          </Box>
+          <Button
+            size="sm"
+            colorScheme="orange"
+            isLoading={upgradingGM}
+            onClick={async () => {
+              setUpgradingGM(true);
+              try {
+                const res = await fetch("/api/users/role", {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ role: "gm" }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.message);
+                // Update Zustand with new role
+                if (user) login({ ...user, role: "gm" });
+                toast({ title: "You are now a Game Master!", status: "success", duration: 4000, isClosable: true });
+              } catch (e: any) {
+                toast({ title: e.message, status: "error", duration: 3000, isClosable: true });
+              } finally {
+                setUpgradingGM(false);
+              }
+            }}
+          >
+            Become a GM
+          </Button>
+        </Alert>
+      )}
 
       {/* User Info */}
       <VStack spacing={4} align="start" mb={8}>

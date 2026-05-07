@@ -1,5 +1,7 @@
 import { Schema, model, models, Model, Document, Types } from "mongoose";
 
+export type UserRole = "player" | "gm" | "moderator" | "admin";
+
 export interface IUser extends Document {
   _id: Types.ObjectId;
 
@@ -14,6 +16,7 @@ export interface IUser extends Document {
   username: string;
   password: string;
   nation: string;
+  role: UserRole;
   stripeCustomerId?: string;
   steamUsername?: string;
   epicUsername?: string;
@@ -36,6 +39,7 @@ const userSchema = new Schema<IUser>({
   stripeCustomerId: { type: String },
   steamUsername: { type: String },
   epicUsername: { type: String },
+  role: { type: String, enum: ["player", "gm", "moderator", "admin"], default: "player" },
   isPremium: { type: Boolean, default: false },
   activeTournamentId: { type: String },
   

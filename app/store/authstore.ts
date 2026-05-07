@@ -14,6 +14,8 @@ interface Game {
 }
 
 
+export type UserRole = "player" | "gm" | "moderator" | "admin";
+
 interface User {
   _id?: string;
   firstName: string;
@@ -29,6 +31,7 @@ interface User {
   epicUsername?: string;
   isPremium?: boolean;
   activeTournamentId?: string | null;
+  role?: UserRole;
 }
 
 interface AuthState {

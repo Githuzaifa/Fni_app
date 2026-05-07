@@ -38,7 +38,7 @@ import NextLink from "next/link";
 export default function SignupPage() {
   const router = useRouter();
   const toast = useToast();
-  const { login } = useAuthStore();
+  const { login, setBalance } = useAuthStore();
   const { isOpen, onOpen, onClose } = useDisclosure();
 
   const [firstName, setFirstName] = useState("");
@@ -80,6 +80,7 @@ useEffect(() => {
 
     if (res.ok) {
       login(data.user);
+      fetch("/api/wallet").then((r) => r.json()).then((w) => { if (w.balance !== undefined) setBalance(w.balance); }).catch(() => {});
 
       toast({
         title: "Registration successful",

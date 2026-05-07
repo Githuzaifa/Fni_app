@@ -48,6 +48,7 @@ import {
   InputLeftElement,
 } from "@chakra-ui/react";
 import { AddIcon, DeleteIcon, SearchIcon } from "@chakra-ui/icons";
+import { useAuthStore } from "../store/authstore";
 
 const APPEAL_EMAIL = "support@fni.gg";
 
@@ -126,6 +127,9 @@ interface TournamentRecord {
 export default function AdminTools() {
   const toast = useToast();
   const panelBg = useColorModeValue("whiteAlpha.700", "blackAlpha.500");
+  const user    = useAuthStore((state) => state.user);
+  const role    = user?.role ?? "player";
+  const isAllowed = role === "moderator" || role === "admin";
 
   // ---- Bans state ----
   const [bans, setBans]       = useState<BanRecord[]>([]);
@@ -300,6 +304,15 @@ export default function AdminTools() {
   }
 
   // ---- UI ----
+  if (!isAllowed) {
+    return (
+      <Box p={10} textAlign="center">
+        <Heading size="md" color="red.400">Access Denied</Heading>
+        <Text mt={2} color="gray.500">You do not have permission to view this page.</Text>
+      </Box>
+    );
+  }
+
   return (
     <Box p={6} width="80%" marginLeft={200} minH="100vh">
       {/* HEADER */}

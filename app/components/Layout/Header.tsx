@@ -46,6 +46,9 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user            = useAuthStore((state) => state.user);
+  const role            = user?.role ?? "player";
+  const isMod           = role === "moderator" || role === "admin";
 
   return (
     <Box
@@ -86,33 +89,14 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
 
           {isAuthenticated && (
             <>
-              <LinkButton
-                url="/Tournaments"
-                title="Tournaments"
-                themeMode={themeMode}
-              />
-              <LinkButton
-                url="/PremiumPlan"
-                title="Premium Plan"
-                themeMode={themeMode}
-              />
-              <LinkButton
-                url="/payment"
-                title="Payment Method"
-                themeMode={themeMode}
-              />
-
-              <LinkButton
-                url="/Admin_tools"
-                title="Admin Tools"
-                themeMode={themeMode}
-              />
-
-              <LinkButton
-                url="/teams"
-                title="Party"
-                themeMode={themeMode}
-              />
+              <LinkButton url="/profile"     title="Profile"        themeMode={themeMode} />
+              <LinkButton url="/Tournaments" title="Tournaments"    themeMode={themeMode} />
+              <LinkButton url="/PremiumPlan" title="Premium Plan"   themeMode={themeMode} />
+              <LinkButton url="/payment"     title="Payment Method" themeMode={themeMode} />
+              <LinkButton url="/teams"       title="Party"          themeMode={themeMode} />
+              {isMod && (
+                <LinkButton url="/Admin_tools" title="Admin Tools" themeMode={themeMode} />
+              )}
             </>
           )}
         </VStack>

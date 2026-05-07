@@ -24,7 +24,7 @@ import NextLink from "next/link";
 export default function LoginPage() {
   const router = useRouter();
   const toast = useToast();
-  const { login } = useAuthStore();
+  const { login, setBalance } = useAuthStore();
 
   const [email, setEmail]         = useState("");
   const [password, setPassword]   = useState("");
@@ -47,6 +47,7 @@ export default function LoginPage() {
       login(data.user);
       setEmail("");
       setPassword("");
+      fetch("/api/wallet").then((r) => r.json()).then((w) => { if (w.balance !== undefined) setBalance(w.balance); }).catch(() => {});
 
       toast({
         title: "Login successful",
