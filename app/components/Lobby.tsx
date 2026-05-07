@@ -31,7 +31,10 @@ import {
   useToast,
   Alert,
   AlertIcon,
+  IconButton,
+  Tooltip,
 } from "@chakra-ui/react";
+import { FaExpand, FaCompress } from "react-icons/fa";
 import { useAuthStore } from "../store/authstore";
 import ScreenShare from "./ScreenShare";
 import ChatBox from "./ChatBox";
@@ -83,11 +86,12 @@ export default function Lobby({ isGM, lobbyId }: Props) {
   const banModal = useDisclosure();
   const currentUser = useAuthStore((state) => state.user);
 
-  const [players, setPlayers]       = useState<LobbyPlayer[]>(MOCK_PLAYERS);
+  const [players, setPlayers]         = useState<LobbyPlayer[]>(MOCK_PLAYERS);
   const [selectedPlayer, setSelected] = useState<LobbyPlayer | null>(null);
-  const [banReason,   setBanReason]  = useState("");
+  const [banReason,   setBanReason]   = useState("");
   const [banDuration, setBanDuration] = useState("1week");
-  const [banning,     setBanning]    = useState(false);
+  const [banning,     setBanning]     = useState(false);
+  const [maximized, setMaximized]     = useState<"screen" | "chat" | null>(null);
 
   function openBanModal(player: LobbyPlayer) {
     setSelected(player);
@@ -140,15 +144,7 @@ export default function Lobby({ isGM, lobbyId }: Props) {
       spacing={6}
       align="stretch"
       w="100%"
-      maxW="1400px"
-      mx="auto"
-      px={8}
-      py={6}
-      bg="gray.900"
-      color="white"
-      minH="100vh"
-      borderRadius="md"
-      boxShadow="lg"
+      py={4}
     >
       <Heading size="lg" textAlign="center" color="teal.300">
         Lobby: {lobbyId}{" "}
@@ -158,20 +154,66 @@ export default function Lobby({ isGM, lobbyId }: Props) {
       </Heading>
       <Divider borderColor="gray.700" />
 
-      <HStack align="start" spacing={6} justify="space-between" w="100%" flexWrap="wrap">
-        {/* Screen Share */}
-        <Box flex="3" bg="gray.800" p={4} borderRadius="md" minH="500px">
-          <ScreenShare isGM={isGM} />
-          <Text mt={4} color="gray.400" fontSize="sm">
-            {isGM
-              ? "You are sharing your screen with all players."
-              : "Live screen shared by the Game Master."}
+      <HStack align="start" spacing={4} w="100%" flexWrap="nowrap">
+        {/* Screen Share Panel — always mounted, hidden via CSS when chat is maximised */}
+        <Box
+          flex={maximized === "screen" ? "1" : "3"}
+          display={maximized === "chat" ? "none" : "flex"}
+          flexDirection="column"
+          bg="gray.800"
+          p={4}
+          borderRadius="lg"
+          minH="500px"
+          boxShadow="dark-lg"
+        >
+          <HStack justify="space-between" mb={3}>
+            <Text fontWeight="bold" color="teal.300" fontSize="sm" letterSpacing="wide" textTransform="uppercase">
+              {isGM ? "Your Screen" : "Game Master Screen"}
+            </Text>
+            <Tooltip label={maximized === "screen" ? "Restore" : "Maximise"} placement="left">
+              <IconButton
+                size="xs"
+                variant="ghost"
+                colorScheme="teal"
+                icon={maximized === "screen" ? <FaCompress /> : <FaExpand />}
+                aria-label="Toggle screen maximise"
+                onClick={() => setMaximized(maximized === "screen" ? null : "screen")}
+              />
+            </Tooltip>
+          </HStack>
+          <ScreenShare isGM={isGM} lobbyId={lobbyId} username={currentUser?.username ?? "Player"} />
+          <Text mt={3} color="gray.500" fontSize="xs">
+            {isGM ? "Players can share their screen here for anti-cheat monitoring." : "Share your screen with the Game Master when requested."}
           </Text>
         </Box>
 
-        {/* Chat */}
-        <Box flex="1.2" bg="gray.800" p={4} borderRadius="md" minH="500px">
-          <ChatBox isGM={isGM} />
+        {/* Chat Panel — always mounted, hidden via CSS when screen is maximised */}
+        <Box
+          flex={maximized === "chat" ? "1" : "1.2"}
+          display={maximized === "screen" ? "none" : "flex"}
+          flexDirection="column"
+          bg="gray.800"
+          p={4}
+          borderRadius="lg"
+          minH="500px"
+          boxShadow="dark-lg"
+        >
+          <HStack justify="space-between" mb={3}>
+            <Text fontWeight="bold" color="teal.300" fontSize="sm" letterSpacing="wide" textTransform="uppercase">
+              Lobby Chat
+            </Text>
+            <Tooltip label={maximized === "chat" ? "Restore" : "Maximise"} placement="left">
+              <IconButton
+                size="xs"
+                variant="ghost"
+                colorScheme="teal"
+                icon={maximized === "chat" ? <FaCompress /> : <FaExpand />}
+                aria-label="Toggle chat maximise"
+                onClick={() => setMaximized(maximized === "chat" ? null : "chat")}
+              />
+            </Tooltip>
+          </HStack>
+          <ChatBox isGM={isGM} lobbyId={lobbyId} username={currentUser?.username ?? "Player"} />
         </Box>
       </HStack>
 
