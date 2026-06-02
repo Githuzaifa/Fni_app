@@ -54,9 +54,9 @@ export const useAuthStore = create<AuthState>()(
       balance: 0,
 
       games: [
-        { id: "rocketLeague", name: "Rocket League" },
-        { id: "apexLegends", name: "Apex Legends" },
-        { id: "valorant", name: "Valorant" },
+        { id: "scouring", name: "The Scouring" },
+        { id: "warOfDots", name: "War of Dots" },
+        { id: "ageOfEmpires2", name: "Age of Empires 2" },
       ],
       login: (user) =>
         set({

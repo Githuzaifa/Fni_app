@@ -78,8 +78,8 @@ function formatExpiry(expiresAt?: string | null, duration?: string) {
 }
 
 const initialTickets = [
-  { id: "t1", reporter: "GM_Alex", accused: "Yoda",     game: "Rocket League", status: "Open",         notes: "Suspicious input patterns", createdAt: "2025-11-23" },
-  { id: "t2", reporter: "GM_Sam",  accused: "NinjaKid", game: "Valorant",       status: "Investigating", notes: "Left mid-game repeatedly",  createdAt: "2025-11-20" },
+  { id: "t1", reporter: "GM_Alex", accused: "Yoda",     game: "The Scouring",     status: "Open",         notes: "Suspicious input patterns", createdAt: "2025-11-23" },
+  { id: "t2", reporter: "GM_Sam",  accused: "NinjaKid", game: "Age of Empires 2", status: "Investigating", notes: "Left mid-game repeatedly",  createdAt: "2025-11-20" },
 ];
 
 const initialAudit = [
@@ -89,9 +89,9 @@ const initialAudit = [
 ];
 
 const initialGames = [
-  { id: "g1", name: "Rocket League", approved: true },
-  { id: "g2", name: "Valorant",      approved: true },
-  { id: "g3", name: "Apex Legends",  approved: true },
+  { id: "g1", name: "The Scouring",     approved: true },
+  { id: "g2", name: "Age of Empires 2", approved: true },
+  { id: "g3", name: "War of Dots",      approved: true },
   { id: "g4", name: "New Indie Shooter", approved: false },
 ];
 
@@ -639,7 +639,7 @@ export default function AdminTools() {
                 <FormLabel>Game</FormLabel>
                 <Select value={ticketForm.game} onChange={(e) => setTicketForm({ ...ticketForm, game: e.target.value })}>
                   <option value="">Select game</option>
-                  <option>Rocket League</option><option>Valorant</option><option>Apex Legends</option>
+                  <option>The Scouring</option><option>Age of Empires 2</option><option>War of Dots</option>
                 </Select>
               </FormControl>
               <FormControl><FormLabel>Notes</FormLabel><Textarea value={ticketForm.notes} onChange={(e) => setTicketForm({ ...ticketForm, notes: e.target.value })} /></FormControl>

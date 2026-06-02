@@ -8,9 +8,9 @@ import { Wallet } from "../../../../models/Wallet";
 const FEE_MAP: Record<string, number> = { "€5": 5, "€10": 10 };
 
 const GAME_ID: Record<string, string> = {
-  "Rocket League": "rocketLeague",
-  "Apex Legends":  "apexLegends",
-  "Valorant":      "valorant",
+  "The Scouring":   "scouring",
+  "Age of Empires 2": "ageOfEmpires2",
+  "War of Dots":    "warOfDots",
 };
 
 export async function POST(

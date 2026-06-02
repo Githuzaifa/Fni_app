@@ -47,6 +47,12 @@ interface EloRatings {
   [gameName: string]: number;
 }
 
+const GAME_DISPLAY: Record<string, string> = {
+  scouring:      "The Scouring",
+  ageOfEmpires2: "Age of Empires 2",
+  warOfDots:     "War of Dots",
+};
+
 const ROLE_COLORS: Record<string, string> = {
   player: "gray", gm: "orange", moderator: "purple", admin: "red",
 };
@@ -289,8 +295,8 @@ export default function Profile() {
             >
               <VStack align="stretch" spacing={2}>
                 <HStack justify="space-between">
-                  <Text fontWeight="bold" fontSize="lg" textTransform="capitalize">
-                    {game}
+                  <Text fontWeight="bold" fontSize="lg">
+                    {GAME_DISPLAY[game] ?? game}
                   </Text>
                   <Badge colorScheme={getEloColor(elo)} fontSize="sm" px={2} py={1}>
                     {elo >= 800 ? "Expert" : elo >= 500 ? "Advanced" : elo >= 300 ? "Intermediate" : "Beginner"}

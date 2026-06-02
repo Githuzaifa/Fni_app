@@ -49,7 +49,12 @@ import {
 // ──────────────────────────────────────────────
 // Constants
 // ──────────────────────────────────────────────
-const GAMES         = ["Rocket League", "Valorant", "Apex Legends"];
+const GAMES         = ["The Scouring", "Age of Empires 2", "War of Dots"];
+const GAME_IMAGE: Record<string, string> = {
+  "The Scouring":     "/scouring.jpg",
+  "Age of Empires 2": "/age_of_empires_2.jpg",
+  "War of Dots":      "/war_of_dots.jpg",
+};
 const FEE_TYPES     = ["Free", "€5", "€10"];
 const PLAYER_COUNTS = ["1v1", "2v2", "3v3", "5v5"];
 const REGIONS       = ["Europe", "North America", "South America", "Asia", "Oceania", "Middle East", "Africa"];
@@ -132,9 +137,9 @@ const WIZARD_INITIAL: WizardForm = {
 };
 
 const SEED_TOURNAMENTS: Tournament[] = [
-  { id: "s1", title: "Rocket League: 2v2 Fire Cup",  type: "Fire", game: "Rocket League", status: "Active",    startTime: "Today, 6 PM UTC",    participants: "6/16",  duration: "1 hour",  fee: "€5",   region: "Europe",        feeType: "per_person" },
-  { id: "s2", title: "Valorant Ice Showdown",         type: "Ice",  game: "Valorant",      status: "Scheduled", startTime: "Tomorrow, 4 PM UTC", participants: "12/32", duration: "2 hours", fee: "Free",  region: "North America", feeType: "per_person" },
-  { id: "s3", title: "Apex Legends Trio Bash",        type: "Fire", game: "Apex Legends",  status: "Scheduled", startTime: "Friday, 9 PM UTC",   participants: "3/10",  duration: "1 hour",  fee: "€10",  region: "Europe",        feeType: "per_team",  boosted: true },
+  { id: "s1", title: "The Scouring: 2v2 Fire Cup",    type: "Fire", game: "The Scouring",     status: "Active",    startTime: "Today, 6 PM UTC",    participants: "6/16",  duration: "1 hour",  fee: "€5",   region: "Europe",        feeType: "per_person" },
+  { id: "s2", title: "Age of Empires 2 Ice Showdown", type: "Ice",  game: "Age of Empires 2", status: "Scheduled", startTime: "Tomorrow, 4 PM UTC", participants: "12/32", duration: "2 hours", fee: "Free",  region: "North America", feeType: "per_person" },
+  { id: "s3", title: "War of Dots Trio Bash",          type: "Fire", game: "War of Dots",      status: "Scheduled", startTime: "Friday, 9 PM UTC",   participants: "3/10",  duration: "1 hour",  fee: "€10",  region: "Europe",        feeType: "per_team",  boosted: true },
 ];
 
 // ──────────────────────────────────────────────
@@ -142,9 +147,9 @@ const SEED_TOURNAMENTS: Tournament[] = [
 // ──────────────────────────────────────────────
 function GameCard({ game, isSelected, onSelect }: { game: string; isSelected: boolean; onSelect: () => void }) {
   return (
-    <Box onClick={onSelect} cursor="pointer" border="2px solid" borderColor={isSelected ? "blue.500" : "gray.200"} borderRadius="lg" bg={isSelected ? "blue.500" : "transparent"} p={4} textAlign="center" transition="all 0.2s" _hover={{ shadow: "md", borderColor: "blue.300" }} minW="110px">
-      <Image src={`/${game}.jpg`} alt={game} mx="auto" mb={2} boxSize="60px" objectFit="contain" fallbackSrc="/images/games/placeholder.png" />
-      <Text fontWeight="medium" fontSize="sm">{game}</Text>
+    <Box onClick={onSelect} cursor="pointer" border="2px solid" borderColor={isSelected ? "blue.500" : "gray.200"} borderRadius="xl" bg={isSelected ? "blue.500" : "transparent"} p={6} textAlign="center" transition="all 0.2s" _hover={{ shadow: "lg", borderColor: "blue.300" }} minW="150px" w="160px">
+      <Image src={GAME_IMAGE[game] ?? `/${game}.jpg`} alt={game} mx="auto" mb={3} boxSize="90px" objectFit="contain" fallbackSrc="/images/games/placeholder.png" />
+      <Text fontWeight="semibold" fontSize="sm" whiteSpace="normal" lineHeight="short">{game}</Text>
     </Box>
   );
 }
@@ -153,13 +158,13 @@ function GameSelector({ selectedGame, onSelect }: { selectedGame: string; onSele
   const layout = useBreakpointValue({ base: "vertical", md: "horizontal" });
   if (layout === "horizontal") {
     return (
-      <Flex overflowX="auto" gap={3} pb={2}>
+      <Flex gap={4} pb={2} justify="center" flexWrap="wrap">
         {GAMES.map((g) => <GameCard key={g} game={g} isSelected={selectedGame === g} onSelect={() => onSelect(g)} />)}
       </Flex>
     );
   }
   return (
-    <Wrap spacing={3}>
+    <Wrap spacing={4} justify="center">
       {GAMES.map((g) => <WrapItem key={g}><GameCard game={g} isSelected={selectedGame === g} onSelect={() => onSelect(g)} /></WrapItem>)}
     </Wrap>
   );
@@ -733,7 +738,7 @@ export default function Tournaments() {
       </Modal>
 
       {/* ── CREATION WIZARD ── */}
-      <Modal isOpen={wizardModal.isOpen} onClose={wizardModal.onClose} isCentered size="lg">
+      <Modal isOpen={wizardModal.isOpen} onClose={wizardModal.onClose} isCentered size="2xl">
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Create Tournament — Step {wizardStep} of {TOTAL_STEPS}</ModalHeader>

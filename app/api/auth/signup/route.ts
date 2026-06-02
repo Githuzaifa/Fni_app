@@ -82,9 +82,9 @@ if (eloObject instanceof Map) {
     const userWithElo = {
       ...userWithoutPassword,
       elo: eloObject || {
-        rocketLeague: 100,
-        apexLegends: 100,
-        valorant: 100
+        scouring: 400,
+        ageOfEmpires2: 400,
+        warOfDots: 400
       }
     };
 

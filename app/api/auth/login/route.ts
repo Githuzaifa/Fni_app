@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       userWithoutPassword.elo = Object.fromEntries(userWithoutPassword.elo);
     }
     if (!userWithoutPassword.elo) {
-      userWithoutPassword.elo = { rocketLeague: 100, apexLegends: 100, valorant: 100 };
+      userWithoutPassword.elo = { scouring: 400, ageOfEmpires2: 400, warOfDots: 400 };
     }
 
     return new NextResponse(
