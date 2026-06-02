@@ -204,8 +204,6 @@ export default function Tournaments() {
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState({ game: "", type: "", availability: "", fee: "", eloTier: "" });
 
-  // ── join queue simulation ──
-  const [queue, setQueue] = useState<{ player: string; tournamentId: string }[]>([]);
 
   // ── gamer tag modal ──
   const gamerTagModal = useDisclosure();
@@ -221,10 +219,11 @@ export default function Tournaments() {
   const [skipWizard,       setSkipWizard]       = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
-  // ── boost / cancel / delete ──
-  const [boostingId,    setBoostingId]    = useState<string | null>(null);
-  const [cancellingId,  setCancellingId]  = useState<string | null>(null);
-  const [deletingId,    setDeletingId]    = useState<string | null>(null);
+  // ── boost / cancel / delete / open lobby ──
+  const [boostingId,      setBoostingId]      = useState<string | null>(null);
+  const [cancellingId,    setCancellingId]    = useState<string | null>(null);
+  const [deletingId,      setDeletingId]      = useState<string | null>(null);
+  const [openingLobbyId,  setOpeningLobbyId]  = useState<string | null>(null);
 
   const TOTAL_STEPS = 4;
 
@@ -381,15 +380,23 @@ export default function Tournaments() {
       }
       if (data.walletBalance !== undefined) setBalance(data.walletBalance);
       setActiveTournament(tournamentId);
-      const updated = [...queue, { player: playerGamerTag, tournamentId }];
-      setQueue(updated);
-      toast({ title: "Joined queue!", description: `${playerGamerTag} joined tournament`, status: "success", duration: 3000, isClosable: true });
-      const inThis = updated.filter((q) => q.tournamentId === tournamentId);
-      if (inThis.length % 2 === 0) {
-        const lobbyId = Math.floor(Math.random() * 1000);
-        toast({ title: "Match found!", description: `Lobby #${lobbyId} ready`, status: "success", duration: 3000, isClosable: true });
-        setTimeout(() => router.push(`/lobby/${lobbyId}`), 1500);
-      }
+      const joined = allTournaments.find((t) => t.id === tournamentId);
+      toast({
+        title:       "Successfully joined!",
+        description: `You're registered. The GM will open the lobby when the match starts${joined ? ` — scheduled at ${joined.startTime}` : ""}.`,
+        status:      "success",
+        duration:    6000,
+        isClosable:  true,
+      });
+      // Bump the participant count locally
+      const bumpCount = (list: Tournament[]) =>
+        list.map((t) => {
+          if (t.id !== tournamentId) return t;
+          const [cur, max] = t.participants.split("/");
+          return { ...t, participants: `${parseInt(cur) + 1}/${max}` };
+        });
+      setAllTournaments(bumpCount);
+      setDisplayedTournaments(bumpCount);
     } catch {
       toast({ title: "Network error — could not join", status: "error", duration: 3000, isClosable: true });
     }
@@ -472,6 +479,31 @@ export default function Tournaments() {
       toast({ title: "Tournament deleted.", status: "success", duration: 3000, isClosable: true });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  // Open lobby (GM action)
+  // ──────────────────────────────────────────────
+  const handleOpenLobby = async (tournamentId: string) => {
+    setOpeningLobbyId(tournamentId);
+    try {
+      const res  = await fetch(`/api/tournaments/${tournamentId}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ action: "open-lobby" }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: data.message ?? "Failed to open lobby", status: "error", duration: 3000, isClosable: true });
+        return;
+      }
+      setAllTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Active" } : t));
+      setDisplayedTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Active" } : t));
+      toast({ title: "Lobby opened!", description: "Participants can now join.", status: "success", duration: 3000, isClosable: true });
+      router.push(`/lobby/${tournamentId}`);
+    } finally {
+      setOpeningLobbyId(null);
     }
   };
 
@@ -606,9 +638,19 @@ export default function Tournaments() {
               )}
             </HStack>
 
-            <Button colorScheme="brand" mt={4} isDisabled={locked} onClick={() => openModalForJoin(tournament.id)}>
-              {locked ? "Locked" : "Join Queue"}
-            </Button>
+            {/* Join Lobby (participant, lobby is open) */}
+            {user?.activeTournamentId === tournament.id && tournament.status === "Active" ? (
+              <Button colorScheme="teal" mt={4} onClick={() => router.push(`/lobby/${tournament.id}`)}>
+                Join Lobby →
+              </Button>
+            ) : tournament.status === "Active" ? (
+              <Badge colorScheme="green" mt={4} px={3} py={2} borderRadius="full" fontSize="sm">Lobby Active</Badge>
+            ) : tournament.status !== "Cancelled" && tournament.status !== "Completed" ? (
+              <Button colorScheme="brand" mt={4} isDisabled={locked} onClick={() => openModalForJoin(tournament.id)}>
+                {locked ? "Locked" : "Join Queue"}
+              </Button>
+            ) : null}
+
             <Button colorScheme="blue" variant="outline" _hover={{ bg: "blue.100", color: "black" }} onClick={() => router.push(`/Tournaments/${tournament.id}/leaderboard`)}>View Leaderboard</Button>
 
             {/* Creator-only controls */}
@@ -617,6 +659,11 @@ export default function Tournaments() {
                 {!tournament.boosted && (
                   <Button size="sm" colorScheme="yellow" isLoading={boostingId === tournament.id} onClick={() => handleBoost(tournament.id)}>
                     ⚡ Boost €{BOOST_COST}
+                  </Button>
+                )}
+                {tournament.status !== "Active" && tournament.status !== "Cancelled" && tournament.status !== "Completed" && !tournament.id.startsWith("s") && (
+                  <Button size="sm" colorScheme="teal" isLoading={openingLobbyId === tournament.id} onClick={() => handleOpenLobby(tournament.id)}>
+                    Open Lobby
                   </Button>
                 )}
                 {tournament.status !== "Cancelled" && tournament.status !== "Completed" && (

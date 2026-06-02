@@ -1,38 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
-  HStack,
-  VStack,
-  Heading,
-  Divider,
-  Box,
-  Text,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Avatar,
-  Button,
-  Badge,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-  ModalCloseButton,
-  FormControl,
-  FormLabel,
-  Select,
-  Textarea,
-  useDisclosure,
-  useToast,
-  Alert,
-  AlertIcon,
-  IconButton,
-  Tooltip,
+  HStack, VStack, Heading, Divider, Box, Text,
+  Table, Thead, Tbody, Tr, Th, Td, Avatar, Button, Badge,
+  Modal, ModalOverlay, ModalContent, ModalHeader, ModalBody,
+  ModalFooter, ModalCloseButton, FormControl, FormLabel,
+  Select, Textarea, useDisclosure, useToast, Alert, AlertIcon,
+  IconButton, Tooltip, Spinner, RadioGroup, Radio, Stack,
 } from "@chakra-ui/react";
 import { FaExpand, FaCompress } from "react-icons/fa";
 import { useAuthStore } from "../store/authstore";
@@ -40,16 +14,19 @@ import ScreenShare from "./ScreenShare";
 import ChatBox from "./ChatBox";
 
 interface Props {
-  isGM: boolean;
-  lobbyId: string;
+  isGM:         boolean;
+  lobbyId:      string;
+  tournamentId: string;
 }
 
 interface LobbyPlayer {
-  fniUsername: string;
-  steamUsername: string;
-  epicUsername: string;
-  status: "Active" | "Kicked";
-  isPremium?: boolean;
+  userId:   string;
+  username: string;
+  email:    string;
+  noShow:   boolean;
+  team?:    "A" | "B";
+  elo?:     number;
+  gamerTag?: string;
 }
 
 const DURATION_OPTIONS = [
@@ -68,30 +45,53 @@ const DURATION_OPTIONS = [
   { value: "permanent", label: "Permanent" },
 ];
 
-// Simulated roster — replaced by real WebSocket/API data in production
-const MOCK_PLAYERS: LobbyPlayer[] = [
-  { fniUsername: "Rat",       steamUsername: "Yoda",        epicUsername: "YodaEpic",    status: "Active", isPremium: true },
-  { fniUsername: "BladeX",    steamUsername: "BladeXSteam", epicUsername: "BladeEpic",   status: "Active", isPremium: false },
-  { fniUsername: "ShadowFox", steamUsername: "Shadow99",    epicUsername: "ShadowFoxEG", status: "Active", isPremium: false },
-];
-
 function displayName(username: string, isPremium?: boolean, isGMRole?: boolean): string {
   if (isPremium && isGMRole) return `(Legend) GM ${username}`;
   if (isPremium) return `(Legend) ${username}`;
   return username;
 }
 
-export default function Lobby({ isGM, lobbyId }: Props) {
-  const toast    = useToast();
-  const banModal = useDisclosure();
+export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
+  const toast       = useToast();
+  const banModal    = useDisclosure();
+  const winnerModal = useDisclosure();
   const currentUser = useAuthStore((state) => state.user);
 
-  const [players, setPlayers]         = useState<LobbyPlayer[]>(MOCK_PLAYERS);
-  const [selectedPlayer, setSelected] = useState<LobbyPlayer | null>(null);
-  const [banReason,   setBanReason]   = useState("");
-  const [banDuration, setBanDuration] = useState("1week");
-  const [banning,     setBanning]     = useState(false);
-  const [maximized, setMaximized]     = useState<"screen" | "chat" | null>(null);
+  const [players,       setPlayers]       = useState<LobbyPlayer[]>([]);
+  const [game,          setGame]          = useState("");
+  const [loadingRoster, setLoadingRoster] = useState(true);
+  const [maximized,     setMaximized]     = useState<"screen" | "chat" | null>(null);
+
+  // Ban state
+  const [selectedPlayer, setSelected]    = useState<LobbyPlayer | null>(null);
+  const [banReason,      setBanReason]   = useState("");
+  const [banDuration,    setBanDuration] = useState("1week");
+  const [banning,        setBanning]     = useState(false);
+
+  // End tournament state
+  const [winnerId,      setWinnerId]     = useState("");
+  const [endingMatch,   setEndingMatch]  = useState(false);
+  const [matchEnded,    setMatchEnded]   = useState(false);
+
+  // Fetch real participants from DB
+  useEffect(() => {
+    (async () => {
+      try {
+        const res  = await fetch(`/api/tournaments/${tournamentId}`);
+        const data = await res.json();
+        if (data.tournament?.participants) {
+          setPlayers(data.tournament.participants);
+        }
+        if (data.tournament?.game) {
+          setGame(data.tournament.game);
+        }
+      } catch {
+        toast({ title: "Could not load participant roster", status: "warning", duration: 3000, isClosable: true });
+      } finally {
+        setLoadingRoster(false);
+      }
+    })();
+  }, [tournamentId]);
 
   function openBanModal(player: LobbyPlayer) {
     setSelected(player);
@@ -111,25 +111,30 @@ export default function Lobby({ isGM, lobbyId }: Props) {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fniUsername:   selectedPlayer.fniUsername,
-          steamUsername: selectedPlayer.steamUsername,
-          epicUsername:  selectedPlayer.epicUsername,
-          reason:        banReason,
-          duration:      banDuration,
-          issuedBy:      "GM",
+          fniUsername:  selectedPlayer.username,
+          reason:       banReason,
+          duration:     banDuration,
+          issuedBy:     currentUser?.username ?? "GM",
         }),
       });
-      // Kick player from the displayed roster
+
+      // Mark as no-show in DB so their fee is forfeited
+      await fetch(`/api/tournaments/${tournamentId}/noshow`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ userId: selectedPlayer.userId }),
+      });
+
       setPlayers((prev) =>
         prev.map((p) =>
-          p.fniUsername === selectedPlayer.fniUsername ? { ...p, status: "Kicked" } : p
+          p.userId === selectedPlayer.userId ? { ...p, noShow: true } : p
         )
       );
       toast({
-        title: `${selectedPlayer.fniUsername} banned and kicked`,
-        status: "success",
-        duration: 3000,
-        isClosable: true,
+        title:       `${selectedPlayer.username} banned and marked as no-show`,
+        status:      "success",
+        duration:    3000,
+        isClosable:  true,
       });
       banModal.onClose();
     } catch {
@@ -139,23 +144,56 @@ export default function Lobby({ isGM, lobbyId }: Props) {
     }
   }
 
+  async function confirmEndMatch() {
+    if (!winnerId) {
+      toast({ title: "Select a winner", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
+    setEndingMatch(true);
+    try {
+      const res  = await fetch(`/api/tournaments/${tournamentId}/end`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ winnerUserId: winnerId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      toast({
+        title:       `Match ended! Winner: ${data.winner}`,
+        description: `Prize awarded: €${data.prizeAwarded}`,
+        status:      "success",
+        duration:    5000,
+        isClosable:  true,
+      });
+      setMatchEnded(true);
+      winnerModal.onClose();
+    } catch (e: any) {
+      toast({ title: e.message ?? "Failed to end match", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setEndingMatch(false);
+    }
+  }
+
   return (
-    <VStack
-      spacing={6}
-      align="stretch"
-      w="100%"
-      py={4}
-    >
+    <VStack spacing={6} align="stretch" w="100%" py={4}>
       <Heading size="lg" textAlign="center" color="teal.300">
         Lobby: {lobbyId}{" "}
         {isGM
           ? `— ${displayName(currentUser?.username ?? "GM", currentUser?.isPremium, true)}`
           : currentUser ? `— ${displayName(currentUser.username, currentUser.isPremium)}` : "(Player)"}
       </Heading>
+
+      {matchEnded && (
+        <Alert status="success" borderRadius="md">
+          <AlertIcon />
+          Match has ended. Results have been recorded and prizes distributed.
+        </Alert>
+      )}
+
       <Divider borderColor="gray.700" />
 
       <HStack align="start" spacing={4} w="100%" flexWrap="nowrap">
-        {/* Screen Share Panel — always mounted, hidden via CSS when chat is maximised */}
+        {/* Screen Share Panel */}
         <Box
           flex={maximized === "screen" ? "1" : "3"}
           display={maximized === "chat" ? "none" : "flex"}
@@ -168,7 +206,7 @@ export default function Lobby({ isGM, lobbyId }: Props) {
         >
           <HStack justify="space-between" mb={3}>
             <Text fontWeight="bold" color="teal.300" fontSize="sm" letterSpacing="wide" textTransform="uppercase">
-              {isGM ? "Your Screen" : "Game Master Screen"}
+              Screen Share
             </Text>
             <Tooltip label={maximized === "screen" ? "Restore" : "Maximise"} placement="left">
               <IconButton
@@ -181,13 +219,15 @@ export default function Lobby({ isGM, lobbyId }: Props) {
               />
             </Tooltip>
           </HStack>
-          <ScreenShare isGM={isGM} lobbyId={lobbyId} username={currentUser?.username ?? "Player"} />
+          <ScreenShare isGM={isGM} lobbyId={lobbyId} username={currentUser?.username ?? "Player"} participants={players} game={game} />
           <Text mt={3} color="gray.500" fontSize="xs">
-            {isGM ? "Players can share their screen here for anti-cheat monitoring." : "Share your screen with the Game Master when requested."}
+            {isGM
+              ? "All player screens appear above, grouped by team. Click any to focus."
+              : "Share your screen with the Game Master when requested. Only the GM can view shared screens."}
           </Text>
         </Box>
 
-        {/* Chat Panel — always mounted, hidden via CSS when screen is maximised */}
+        {/* Chat Panel */}
         <Box
           flex={maximized === "chat" ? "1" : "1.2"}
           display={maximized === "screen" ? "none" : "flex"}
@@ -220,71 +260,72 @@ export default function Lobby({ isGM, lobbyId }: Props) {
       {/* GM CONTROL PANEL */}
       {isGM && (
         <Box bg="gray.800" p={5} borderRadius="md" borderWidth="1px" borderColor="teal.700">
-          <Heading size="md" color="teal.300" mb={1}>GM Control Panel</Heading>
+          <HStack justify="space-between" mb={1} flexWrap="wrap" gap={2}>
+            <Heading size="md" color="teal.300">GM Control Panel</Heading>
+            {!matchEnded && (
+              <Button colorScheme="green" size="sm" onClick={winnerModal.onOpen}>
+                End Match & Declare Winner
+              </Button>
+            )}
+          </HStack>
           <Text fontSize="sm" color="gray.400" mb={4}>
-            Lobby participants — FnI Username · Steam · Epic Games (in order)
+            Live participants — registered for this tournament
           </Text>
 
-          <Box overflowX="auto">
-            <Table variant="simple" size="sm" colorScheme="whiteAlpha">
-              <Thead>
-                <Tr>
-                  <Th color="gray.400">FnI Username</Th>
-                  <Th color="gray.400">Steam Username</Th>
-                  <Th color="gray.400">Epic Games Username</Th>
-                  <Th color="gray.400">Status</Th>
-                  <Th color="gray.400">Action</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {players.map((p) => (
-                  <Tr key={p.fniUsername} opacity={p.status === "Kicked" ? 0.4 : 1}>
-                    <Td>
-                      <HStack>
-                        <Avatar size="xs" name={p.fniUsername} />
-                        <Text fontWeight="bold">
-                          {displayName(p.fniUsername, p.isPremium)}
-                        </Text>
-                      </HStack>
-                    </Td>
-                    <Td color="gray.300">{p.steamUsername}</Td>
-                    <Td color="gray.300">{p.epicUsername}</Td>
-                    <Td>
-                      <Badge colorScheme={p.status === "Active" ? "green" : "red"}>
-                        {p.status}
-                      </Badge>
-                    </Td>
-                    <Td>
-                      {p.status === "Active" && (
-                        <Button
-                          size="xs"
-                          colorScheme="red"
-                          onClick={() => openBanModal(p)}
-                        >
-                          Ban & Kick
-                        </Button>
-                      )}
-                    </Td>
+          {loadingRoster ? (
+            <Spinner color="teal.300" />
+          ) : (
+            <Box overflowX="auto">
+              <Table variant="simple" size="sm" colorScheme="whiteAlpha">
+                <Thead>
+                  <Tr>
+                    <Th color="gray.400">Username</Th>
+                    <Th color="gray.400">Email</Th>
+                    <Th color="gray.400">Status</Th>
+                    <Th color="gray.400">Action</Th>
                   </Tr>
-                ))}
-              </Tbody>
-            </Table>
-          </Box>
+                </Thead>
+                <Tbody>
+                  {players.length === 0 && (
+                    <Tr><Td colSpan={4} textAlign="center" color="gray.500">No participants yet</Td></Tr>
+                  )}
+                  {players.map((p) => (
+                    <Tr key={p.userId} opacity={p.noShow ? 0.4 : 1}>
+                      <Td>
+                        <HStack>
+                          <Avatar size="xs" name={p.username} />
+                          <Text fontWeight="bold">{p.username}</Text>
+                        </HStack>
+                      </Td>
+                      <Td color="gray.300" fontSize="xs">{p.email}</Td>
+                      <Td>
+                        <Badge colorScheme={p.noShow ? "red" : "green"}>
+                          {p.noShow ? "No-Show" : "Active"}
+                        </Badge>
+                      </Td>
+                      <Td>
+                        {!p.noShow && !matchEnded && (
+                          <Button size="xs" colorScheme="red" onClick={() => openBanModal(p)}>
+                            Ban & Kick
+                          </Button>
+                        )}
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </Box>
+          )}
 
-          <Alert status="info" mt={4} borderRadius="md" bg="gray.700" color="gray.200">
-            <AlertIcon />
-            Real-time player roster requires WebSocket integration. Above roster is lobby-session data.
-          </Alert>
-
-          {/* GM Rules & Tips */}
+          {/* GM Rules */}
           <Box mt={5} p={4} borderRadius="md" borderWidth="1px" borderColor="yellow.600" bg="yellow.900">
             <Text fontWeight="bold" color="yellow.300" mb={2}>📋 GM Rules &amp; Tips</Text>
             <VStack align="start" spacing={1} fontSize="sm" color="gray.200">
               <Text>🎥 Set a stream delay when broadcasting to prevent cheating.</Text>
               <Text>🚫 No inappropriate content — streams and chat are monitored.</Text>
-              <Text>📣 Promote your tournament via forums and social media to attract the right audience.</Text>
-              <Text>⚠️ Banning players without a valid reason is <strong>forbidden</strong> and can result in a ban on your own account. Always state the reason clearly.</Text>
-              <Text>📧 Banned players can appeal via the FnI support email. Direct them there if needed.</Text>
+              <Text>⚠️ Banning players without a valid reason is <strong>forbidden</strong> and can result in a ban on your own account.</Text>
+              <Text>📧 Banned players can appeal via FnI support. Direct them there if needed.</Text>
+              <Text>🏆 Use "End Match &amp; Declare Winner" when the match concludes to distribute prizes automatically.</Text>
             </VStack>
           </Box>
         </Box>
@@ -292,8 +333,7 @@ export default function Lobby({ isGM, lobbyId }: Props) {
 
       <Box textAlign="center" mt={4} color="gray.500">
         <Text fontSize="sm">
-          Please wait for the Game Master to start the round. Screen sharing and
-          instructions will appear automatically here.
+          Please wait for the Game Master to start the round. Screen sharing and instructions will appear here.
         </Text>
       </Box>
 
@@ -307,9 +347,8 @@ export default function Lobby({ isGM, lobbyId }: Props) {
             {selectedPlayer && (
               <VStack spacing={3} align="stretch">
                 <Box p={3} bg="gray.100" borderRadius="md" fontSize="sm">
-                  <Text><strong>FnI:</strong> {selectedPlayer.fniUsername}</Text>
-                  <Text><strong>Steam:</strong> {selectedPlayer.steamUsername}</Text>
-                  <Text><strong>Epic:</strong> {selectedPlayer.epicUsername}</Text>
+                  <Text><strong>Username:</strong> {selectedPlayer.username}</Text>
+                  <Text><strong>Email:</strong> {selectedPlayer.email}</Text>
                 </Box>
                 <FormControl isRequired>
                   <FormLabel>Duration</FormLabel>
@@ -329,7 +368,7 @@ export default function Lobby({ isGM, lobbyId }: Props) {
                 </FormControl>
                 <Alert status="warning" borderRadius="md">
                   <AlertIcon />
-                  This will kick the player and create a ban record visible to moderators.
+                  Player will be kicked, marked as no-show, and a ban record will be created.
                 </Alert>
               </VStack>
             )}
@@ -339,6 +378,49 @@ export default function Lobby({ isGM, lobbyId }: Props) {
               Confirm Ban & Kick
             </Button>
             <Button onClick={banModal.onClose}>Cancel</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* END MATCH / DECLARE WINNER MODAL */}
+      <Modal isOpen={winnerModal.isOpen} onClose={winnerModal.onClose} isCentered>
+        <ModalOverlay />
+        <ModalContent bg="white" color="black">
+          <ModalHeader>End Match — Declare Winner</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <VStack spacing={4} align="stretch">
+              <Alert status="info" borderRadius="md">
+                <AlertIcon />
+                The winner will receive the prize pool (minus 10% platform fee). This action cannot be undone.
+              </Alert>
+              <FormControl isRequired>
+                <FormLabel>Select Winner</FormLabel>
+                <RadioGroup value={winnerId} onChange={setWinnerId}>
+                  <Stack spacing={2}>
+                    {players
+                      .filter((p) => !p.noShow)
+                      .map((p) => (
+                        <Radio key={p.userId} value={p.userId}>
+                          {p.username}
+                        </Radio>
+                      ))}
+                  </Stack>
+                </RadioGroup>
+              </FormControl>
+            </VStack>
+          </ModalBody>
+          <ModalFooter>
+            <Button
+              colorScheme="green"
+              mr={3}
+              onClick={confirmEndMatch}
+              isLoading={endingMatch}
+              isDisabled={!winnerId}
+            >
+              Confirm & End Match
+            </Button>
+            <Button onClick={winnerModal.onClose}>Cancel</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

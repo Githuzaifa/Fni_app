@@ -5,6 +5,9 @@ export interface IParticipant {
   username: string;
   email:    string;
   noShow?:  boolean;
+  team?:    "A" | "B";
+  elo?:     number;
+  gamerTag?: string;
 }
 
 export interface ITournament extends Document {
@@ -37,6 +40,9 @@ const participantSchema = new Schema<IParticipant>({
   username: { type: String, required: true },
   email:    { type: String, required: true },
   noShow:   { type: Boolean, default: false },
+  team:     { type: String, enum: ["A", "B"] },
+  elo:      { type: Number },
+  gamerTag: { type: String },
 }, { _id: false });
 
 const tournamentSchema = new Schema<ITournament>(

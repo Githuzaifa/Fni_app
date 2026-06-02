@@ -12,6 +12,31 @@ async function resolveUser(req: NextRequest) {
   return getUserFromRequest(req);
 }
 
+export async function GET(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    await connectToDatabase();
+    const { id }       = await params;
+    const tournament   = await Tournament.findById(id).lean();
+    if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
+
+    // Attach lobby access info if user is authenticated
+    const currentUser  = await getUserFromRequest(req);
+    const userId       = currentUser?._id?.toString() ?? "";
+    const isCreator    = tournament.createdBy === userId ||
+                         tournament.createdBy === currentUser?.username;
+    const isParticipant = (tournament as any).participants?.some(
+      (p: any) => p.userId === userId
+    ) ?? false;
+
+    return NextResponse.json({ tournament, isCreator, isParticipant });
+  } catch {
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -22,6 +47,24 @@ export async function PATCH(
 
     const { id }     = await params;
     const { action } = await req.json();
+
+    if (action === "open-lobby") {
+      const tournament = await Tournament.findById(id);
+      if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
+
+      const isOwner = tournament.createdBy === currentUser._id.toString() ||
+                      tournament.createdBy === currentUser.username;
+      if (!isOwner && !["moderator", "admin"].includes(currentUser.role ?? "")) {
+        return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+      }
+      if (tournament.status === "Cancelled" || tournament.status === "Completed") {
+        return NextResponse.json({ message: "Cannot open lobby for this tournament" }, { status: 400 });
+      }
+
+      tournament.status = "Active";
+      await tournament.save();
+      return NextResponse.json({ message: "Lobby opened. Participants can now join.", tournament });
+    }
 
     if (action === "cancel") {
       const tournament = await Tournament.findById(id);

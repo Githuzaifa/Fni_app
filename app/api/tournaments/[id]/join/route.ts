@@ -95,6 +95,20 @@ export async function POST(
       newBalance = wallet.balance;
     }
 
+    // Assign to Team A or B based on format (e.g. "2v2" → teamSize 2)
+    const teamSize = parseInt(tournament.format?.split("v")[0] ?? "1") || 1;
+    const team: "A" | "B" = (tournament.currentParticipants ?? 0) < teamSize ? "A" : "B";
+
+    // Snapshot ELO and gamer tag at join time so ScreenShare can show them without extra queries
+    const eloMap    = currentUser.elo instanceof Map
+      ? currentUser.elo
+      : new Map(Object.entries(currentUser.elo ?? {}));
+    const tagsMap   = currentUser.gamerTags instanceof Map
+      ? currentUser.gamerTags
+      : new Map(Object.entries(currentUser.gamerTags ?? {}));
+    const eloValue  = (eloMap.get(gameId ?? "") as number | undefined) ?? 400;
+    const gamerTagValue = tagsMap.get(gameId ?? "") as string | undefined;
+
     // Push participant + increment count
     await Tournament.findByIdAndUpdate(id, {
       $inc:  { currentParticipants: 1 },
@@ -104,6 +118,9 @@ export async function POST(
           username: currentUser.username,
           email:    currentUser.email,
           noShow:   false,
+          team,
+          elo:      eloValue,
+          gamerTag: gamerTagValue,
         },
       },
     });
