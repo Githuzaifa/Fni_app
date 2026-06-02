@@ -31,14 +31,25 @@ export async function POST(
     if (tournament.status === "Cancelled") {
       return NextResponse.json({ message: "Tournament is cancelled" }, { status: 400 });
     }
+    if (tournament.status === "Completed") {
+      return NextResponse.json({ message: "Tournament has ended" }, { status: 400 });
+    }
     if ((tournament.currentParticipants ?? 0) >= tournament.maxParticipants) {
       return NextResponse.json({ message: "Tournament is full" }, { status: 400 });
     }
 
+    // Already joined this tournament
+    const alreadyIn = tournament.participants.some(
+      (p) => p.userId === currentUser._id.toString()
+    );
+    if (alreadyIn) {
+      return NextResponse.json({ message: "You already joined this tournament" }, { status: 400 });
+    }
+
     // Lock check
     if (tournament.lockEnabled && tournament.scheduledAt) {
-      const offset  = tournament.type === "Ice" ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
-      const lockAt  = new Date(new Date(tournament.scheduledAt).getTime() - offset);
+      const offset = tournament.type === "Ice" ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
+      const lockAt = new Date(new Date(tournament.scheduledAt).getTime() - offset);
       if (new Date() >= lockAt) {
         return NextResponse.json({ message: "Registration is locked for this tournament" }, { status: 400 });
       }
@@ -74,7 +85,7 @@ export async function POST(
       if (wallet.balance < feeAmount) {
         return NextResponse.json({ message: `Insufficient balance. Entry fee: €${feeAmount}` }, { status: 400 });
       }
-      wallet.balance   -= feeAmount;
+      wallet.balance -= feeAmount;
       wallet.transactions.push({
         type:        "fee",
         amount:      feeAmount,
@@ -84,8 +95,18 @@ export async function POST(
       newBalance = wallet.balance;
     }
 
-    // Persist participation
-    await Tournament.findByIdAndUpdate(id, { $inc: { currentParticipants: 1 } });
+    // Push participant + increment count
+    await Tournament.findByIdAndUpdate(id, {
+      $inc:  { currentParticipants: 1 },
+      $push: {
+        participants: {
+          userId:   currentUser._id.toString(),
+          username: currentUser.username,
+          email:    currentUser.email,
+          noShow:   false,
+        },
+      },
+    });
     await User.findByIdAndUpdate(currentUser._id, { activeTournamentId: id });
 
     return NextResponse.json({

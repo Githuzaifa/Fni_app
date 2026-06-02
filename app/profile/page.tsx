@@ -157,38 +157,47 @@ export default function Profile() {
 
       {/* GM Upgrade */}
       {(user.role === "player" || !user.role) && (
-        <Alert status="info" mb={6} borderRadius="md">
+        <Alert status={user.isPremium ? "info" : "warning"} mb={6} borderRadius="md">
           <AlertIcon />
           <Box flex="1">
             <Text fontWeight="bold">Want to host tournaments?</Text>
-            <Text fontSize="sm">Upgrade to Game Master to create and manage your own tournaments.</Text>
+            {user.isPremium ? (
+              <Text fontSize="sm">You have Premium. Upgrade your role to Game Master to create and manage tournaments.</Text>
+            ) : (
+              <Text fontSize="sm">A <strong>Premium subscription</strong> is required to become a Game Master and host tournaments.</Text>
+            )}
           </Box>
-          <Button
-            size="sm"
-            colorScheme="orange"
-            isLoading={upgradingGM}
-            onClick={async () => {
-              setUpgradingGM(true);
-              try {
-                const res = await fetch("/api/users/role", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ role: "gm" }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message);
-                // Update Zustand with new role
-                if (user) login({ ...user, role: "gm" });
-                toast({ title: "You are now a Game Master!", status: "success", duration: 4000, isClosable: true });
-              } catch (e: any) {
-                toast({ title: e.message, status: "error", duration: 3000, isClosable: true });
-              } finally {
-                setUpgradingGM(false);
-              }
-            }}
-          >
-            Become a GM
-          </Button>
+          {user.isPremium ? (
+            <Button
+              size="sm"
+              colorScheme="orange"
+              isLoading={upgradingGM}
+              onClick={async () => {
+                setUpgradingGM(true);
+                try {
+                  const res = await fetch("/api/users/role", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ role: "gm" }),
+                  });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.message);
+                  if (user) login({ ...user, role: "gm" });
+                  toast({ title: "You are now a Game Master!", status: "success", duration: 4000, isClosable: true });
+                } catch (e: any) {
+                  toast({ title: e.message, status: "error", duration: 3000, isClosable: true });
+                } finally {
+                  setUpgradingGM(false);
+                }
+              }}
+            >
+              Become a GM
+            </Button>
+          ) : (
+            <Button size="sm" colorScheme="purple" onClick={() => window.location.href = "/payment"}>
+              Get Premium
+            </Button>
+          )}
         </Alert>
       )}
 

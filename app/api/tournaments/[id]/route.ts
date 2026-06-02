@@ -1,14 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "../../../lib/mongodb";
+import { getUserFromRequest } from "../../../lib/auth";
 import { Tournament } from "../../../models/Tournament";
 import { User } from "../../../models/User";
 import { Wallet } from "../../../models/Wallet";
 
 const FEE_MAP: Record<string, number> = { "€5": 5, "€10": 10 };
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function resolveUser(req: NextRequest) {
+  await connectToDatabase();
+  return getUserFromRequest(req);
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    await connectToDatabase();
+    const currentUser = await resolveUser(req);
+    if (!currentUser) return NextResponse.json({ message: "Login required" }, { status: 401 });
+
     const { id }     = await params;
     const { action } = await req.json();
 
@@ -16,27 +27,40 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       const tournament = await Tournament.findById(id);
       if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
 
+      const role = currentUser.role ?? "player";
+      const isOwner = tournament.createdBy === currentUser._id.toString() ||
+                      tournament.createdBy === currentUser.username;
+      if (!isOwner && !["moderator", "admin"].includes(role)) {
+        return NextResponse.json({ message: "Not authorised to cancel this tournament" }, { status: 403 });
+      }
+
       const feeAmount = FEE_MAP[tournament.fee] ?? 0;
 
-      // Refund all fee-paying participants
-      if (feeAmount > 0) {
-        const participants = await User.find({ activeTournamentId: id });
-        for (const p of participants) {
-          let wallet = await Wallet.findOne({ userId: p._id.toString() });
+      // Refund via participants array (guaranteed correct list)
+      if (feeAmount > 0 && tournament.participants.length > 0) {
+        for (const p of tournament.participants) {
+          if (p.noShow) continue;
+          const wallet = await Wallet.findOne({ userId: p.userId });
           if (!wallet) continue;
           wallet.balance += feeAmount;
           wallet.transactions.unshift({
-            type:        "refund",
-            amount:      feeAmount,
+            type:      "refund",
+            amount:    feeAmount,
             description: `Refund: "${tournament.title}" cancelled`,
-            createdAt:   new Date(),
+            createdAt: new Date(),
           });
           await wallet.save();
         }
       }
 
       // Clear activeTournamentId for all participants
-      await User.updateMany({ activeTournamentId: id }, { $unset: { activeTournamentId: "" } });
+      const userIds = tournament.participants.map((p) => p.userId);
+      if (userIds.length > 0) {
+        await User.updateMany(
+          { _id: { $in: userIds } },
+          { $unset: { activeTournamentId: "" } }
+        );
+      }
 
       tournament.status = "Cancelled";
       await tournament.save();
@@ -44,17 +68,79 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     if (action === "boost") {
-      const boostedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      const tournament   = await Tournament.findByIdAndUpdate(
-        id,
-        { boosted: true, boostedUntil },
-        { new: true }
-      );
+      const tournament = await Tournament.findById(id);
       if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
+
+      const isOwner = tournament.createdBy === currentUser._id.toString() ||
+                      tournament.createdBy === currentUser.username;
+      if (!isOwner && currentUser.role !== "admin") {
+        return NextResponse.json({ message: "Not authorised" }, { status: 403 });
+      }
+
+      const boostedUntil = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      tournament.boosted = true;
+      tournament.boostedUntil = boostedUntil;
+      await tournament.save();
       return NextResponse.json({ message: "Tournament boosted for 24 hours.", tournament });
     }
 
     return NextResponse.json({ message: "Unknown action" }, { status: 400 });
+  } catch {
+    return NextResponse.json({ message: "Server error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const currentUser = await resolveUser(req);
+    if (!currentUser) return NextResponse.json({ message: "Login required" }, { status: 401 });
+
+    const role = currentUser.role ?? "player";
+    if (!["gm", "moderator", "admin"].includes(role)) {
+      return NextResponse.json({ message: "Only GMs can delete tournaments" }, { status: 403 });
+    }
+
+    const { id } = await params;
+    const tournament = await Tournament.findById(id);
+    if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
+
+    const isOwner = tournament.createdBy === currentUser._id.toString() ||
+                    tournament.createdBy === currentUser.username;
+    if (!isOwner && role !== "admin") {
+      return NextResponse.json({ message: "You can only delete your own tournaments" }, { status: 403 });
+    }
+
+    // If there are active participants, refund then clear them
+    const feeAmount = FEE_MAP[tournament.fee] ?? 0;
+    if (feeAmount > 0 && tournament.participants.length > 0) {
+      for (const p of tournament.participants) {
+        if (p.noShow) continue;
+        const wallet = await Wallet.findOne({ userId: p.userId });
+        if (!wallet) continue;
+        wallet.balance += feeAmount;
+        wallet.transactions.unshift({
+          type:        "refund",
+          amount:      feeAmount,
+          description: `Refund: "${tournament.title}" deleted by GM`,
+          createdAt:   new Date(),
+        });
+        await wallet.save();
+      }
+    }
+
+    const userIds = tournament.participants.map((p) => p.userId);
+    if (userIds.length > 0) {
+      await User.updateMany(
+        { _id: { $in: userIds } },
+        { $unset: { activeTournamentId: "" } }
+      );
+    }
+
+    await Tournament.findByIdAndDelete(id);
+    return NextResponse.json({ message: "Tournament deleted." });
   } catch {
     return NextResponse.json({ message: "Server error" }, { status: 500 });
   }

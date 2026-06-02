@@ -4,7 +4,6 @@ import { connectToDatabase } from "../../../lib/mongodb";
 import { Payment } from "../../../models/Payment";
 import { Wallet } from "../../../models/Wallet";
 
-// Stripe requires the raw body — do NOT parse JSON before this
 export const dynamic = "force-dynamic";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -32,7 +31,19 @@ export async function POST(req: NextRequest) {
   switch (event.type) {
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
-      await Payment.findOneAndUpdate({ paymentIntentId: pi.id }, { status: "succeeded" });
+
+      // Idempotency guard: only credit if we haven't already processed this PaymentIntent.
+      // Use findOneAndUpdate with $ne to atomically transition status from pending → succeeded.
+      const updated = await Payment.findOneAndUpdate(
+        { paymentIntentId: pi.id, status: { $ne: "succeeded" } },
+        { status: "succeeded" }
+      );
+
+      // If `updated` is null it means the record was already marked succeeded (retry/duplicate) — skip.
+      if (!updated) {
+        console.log(`Duplicate webhook for PaymentIntent ${pi.id} — skipping wallet credit`);
+        return NextResponse.json({ received: true });
+      }
 
       // Credit wallet for deposit-type payment intents
       const userId    = pi.metadata?.userId;
@@ -42,7 +53,12 @@ export async function POST(req: NextRequest) {
         let wallet   = await Wallet.findOne({ userId });
         if (!wallet) wallet = await Wallet.create({ userId, balance: 0 });
         wallet.balance += amount;
-        wallet.transactions.push({ type: "deposit", amount, description: "Stripe card deposit" });
+        wallet.transactions.unshift({
+          type:        "deposit",
+          amount,
+          description: `Stripe deposit`,
+          createdAt:   new Date(),
+        });
         await wallet.save();
       }
       break;
@@ -54,10 +70,9 @@ export async function POST(req: NextRequest) {
       break;
     }
 
-    case "setup_intent.succeeded": {
-      // Payment method saved — no wallet credit needed
+    case "setup_intent.succeeded":
+      // Card saved — no wallet credit needed
       break;
-    }
 
     default:
       console.log(`Unhandled Stripe event: ${event.type}`);

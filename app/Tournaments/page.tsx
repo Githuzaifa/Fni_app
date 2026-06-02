@@ -85,12 +85,18 @@ function getLockTime(scheduledAt: string, type: "Fire" | "Ice"): Date {
   return new Date(start - offset);
 }
 
-function buildPrizes(fee: string, type: "Fire" | "Ice" | ""): number[] {
-  const count = type === "Ice" ? 10 : 3;
-  const base  = feeAmount(fee) * 16; // rough estimate based on default 16 players
-  if (base === 0) return [];
-  const shares = [0.50, 0.30, 0.20, 0.10, 0.08, 0.07, 0.05, 0.04, 0.03, 0.02];
-  return Array.from({ length: count }, (_, i) => Math.round(base * (shares[i] ?? 0.01)));
+const COMMISSION_RATE = 0.10; // FnI keeps 10% of every prize pool
+
+// Shares must sum to exactly 1.0 — distributed from the post-commission pool
+const FIRE_SHARES = [0.60, 0.25, 0.15];                                         // 3 places
+const ICE_SHARES  = [0.40, 0.20, 0.15, 0.08, 0.06, 0.04, 0.03, 0.02, 0.01, 0.01]; // 10 places
+
+function buildPrizes(fee: string, type: "Fire" | "Ice" | "", maxParticipants: number, feeTypeVal: "per_person" | "per_team", format: string): number[] {
+  const gross = feeAmount(fee) * (feeTypeVal === "per_team" ? Math.ceil(maxParticipants / teamSize(format)) : maxParticipants);
+  if (gross === 0) return [];
+  const net    = gross * (1 - COMMISSION_RATE);
+  const shares = type === "Ice" ? ICE_SHARES : FIRE_SHARES;
+  return shares.map((s) => Math.round(net * s));
 }
 
 // ──────────────────────────────────────────────
@@ -101,7 +107,7 @@ interface Tournament {
   title: string;
   type: "Fire" | "Ice";
   game: string;
-  status: "Active" | "Pending" | "Scheduled" | "Cancelled";
+  status: "Active" | "Pending" | "Scheduled" | "Cancelled" | "Completed";
   startTime: string;
   scheduledAtRaw?: string;
   participants: string;
@@ -215,9 +221,10 @@ export default function Tournaments() {
   const [skipWizard,       setSkipWizard]       = useState(false);
   const [submittingCreate, setSubmittingCreate] = useState(false);
 
-  // ── boost / cancel ──
+  // ── boost / cancel / delete ──
   const [boostingId,    setBoostingId]    = useState<string | null>(null);
   const [cancellingId,  setCancellingId]  = useState<string | null>(null);
+  const [deletingId,    setDeletingId]    = useState<string | null>(null);
 
   const TOTAL_STEPS = 4;
 
@@ -446,10 +453,38 @@ export default function Tournaments() {
   };
 
   // ──────────────────────────────────────────────
+  // Delete
+  // ──────────────────────────────────────────────
+  const handleDelete = async (tournamentId: string) => {
+    if (!window.confirm("Delete this tournament? Entry fees will be refunded to participants.")) return;
+    setDeletingId(tournamentId);
+    try {
+      if (!tournamentId.startsWith("s")) {
+        const res = await fetch(`/api/tournaments/${tournamentId}`, { method: "DELETE" });
+        if (!res.ok) {
+          const err = await res.json();
+          toast({ title: err.message ?? "Delete failed", status: "error", duration: 3000, isClosable: true });
+          return;
+        }
+      }
+      setAllTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
+      setDisplayedTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
+      toast({ title: "Tournament deleted.", status: "success", duration: 3000, isClosable: true });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ──────────────────────────────────────────────
   // Wizard
   // ──────────────────────────────────────────────
   const openWizard = () => {
     if (!user) { toast({ title: "Please login to create tournaments", status: "error", duration: 3000, isClosable: true }); return; }
+    const role = user.role ?? "player";
+    if (!["gm", "moderator", "admin"].includes(role)) {
+      toast({ title: "Game Masters only", description: "Only GMs can create tournaments. Upgrade to GM first.", status: "error", duration: 4000, isClosable: true });
+      return;
+    }
     setWizardForm(WIZARD_INITIAL);
     setPrizes([]);
     setWizardStep(1);
@@ -460,7 +495,7 @@ export default function Tournaments() {
     if (wizardStep === 1 && !wizardForm.game) { toast({ title: "Select a game to continue", status: "warning", duration: 2000, isClosable: true }); return; }
     if (wizardStep === 2 && (!wizardForm.type || !wizardForm.format)) { toast({ title: "Select tournament type and format", status: "warning", duration: 2000, isClosable: true }); return; }
     if (wizardStep === 3 && !wizardForm.schedule) { toast({ title: "Select a start date", status: "warning", duration: 2000, isClosable: true }); return; }
-    if (wizardStep === 3) setPrizes(buildPrizes(wizardForm.fee, wizardForm.type));
+    if (wizardStep === 3) setPrizes(buildPrizes(wizardForm.fee, wizardForm.type, wizardForm.maxParticipants, wizardForm.feeType, wizardForm.format));
     setWizardStep((s) => Math.min(s + 1, TOTAL_STEPS));
   };
 
@@ -578,14 +613,19 @@ export default function Tournaments() {
 
             {/* Creator-only controls */}
             {isCreator(tournament) && (
-              <HStack mt={2} spacing={2}>
+              <HStack mt={2} spacing={2} flexWrap="wrap">
                 {!tournament.boosted && (
                   <Button size="sm" colorScheme="yellow" isLoading={boostingId === tournament.id} onClick={() => handleBoost(tournament.id)}>
                     ⚡ Boost €{BOOST_COST}
                   </Button>
                 )}
-                <Button size="sm" colorScheme="red" variant="outline" isLoading={cancellingId === tournament.id} onClick={() => handleCancel(tournament.id)}>
-                  Cancel
+                {tournament.status !== "Cancelled" && tournament.status !== "Completed" && (
+                  <Button size="sm" colorScheme="red" variant="outline" isLoading={cancellingId === tournament.id} onClick={() => handleCancel(tournament.id)}>
+                    Cancel
+                  </Button>
+                )}
+                <Button size="sm" colorScheme="red" isLoading={deletingId === tournament.id} onClick={() => handleDelete(tournament.id)}>
+                  Delete
                 </Button>
               </HStack>
             )}
@@ -607,7 +647,9 @@ export default function Tournaments() {
         <HStack spacing={3} justify="center" mb={4} flexWrap="wrap">
           <Button colorScheme="brand" onClick={resetAll}>All Tournaments</Button>
           <Button colorScheme="brand" variant="outline" onClick={() => setShowFilter((v) => !v)}>Filter</Button>
-          <Button colorScheme="green" onClick={openWizard}>Create Tournament</Button>
+          {user && ["gm", "moderator", "admin"].includes(user.role ?? "") && (
+            <Button colorScheme="green" onClick={openWizard}>Create Tournament</Button>
+          )}
         </HStack>
 
         {/* Quick filter bar */}
@@ -860,12 +902,18 @@ export default function Tournaments() {
                   </SimpleGrid>
                 </Box>
 
-                {/* Expected income */}
+                {/* Expected income + commission breakdown */}
                 {expectedIncome > 0 && (
                   <Box p={3} borderWidth="1px" borderRadius="md" borderColor="green.200">
-                    <Text fontWeight="bold" fontSize="sm">📊 Expected Income</Text>
+                    <Text fontWeight="bold" fontSize="sm" mb={1}>📊 Prize Pool Breakdown</Text>
                     <Text fontSize="sm" color="gray.600">
-                      {wizardForm.fee} × {wizardForm.feeType === "per_team" ? `${Math.ceil(wizardForm.maxParticipants / teamSize(wizardForm.format))} teams` : `${wizardForm.maxParticipants} players`} = <strong>€{expectedIncome}</strong>
+                      {wizardForm.fee} × {wizardForm.feeType === "per_team" ? `${Math.ceil(wizardForm.maxParticipants / teamSize(wizardForm.format))} teams` : `${wizardForm.maxParticipants} players`} = <strong>€{expectedIncome}</strong> gross
+                    </Text>
+                    <Text fontSize="sm" color="red.500">
+                      FnI platform fee (10%): −€{Math.round(expectedIncome * COMMISSION_RATE)}
+                    </Text>
+                    <Text fontSize="sm" color="green.600" fontWeight="bold">
+                      Net prize pool: €{Math.round(expectedIncome * (1 - COMMISSION_RATE))}
                     </Text>
                   </Box>
                 )}
@@ -882,7 +930,7 @@ export default function Tournaments() {
                         </ListItem>
                       ))}
                     </List>
-                    <Text fontSize="xs" color="gray.500" textAlign="right">Total prizes: €{totalPrizes}</Text>
+                    <Text fontSize="xs" color="gray.500" textAlign="right">Total paid out: €{totalPrizes} (after 10% FnI fee)</Text>
                   </>
                 )}
 
