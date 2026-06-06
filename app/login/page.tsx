@@ -51,15 +51,11 @@ export default function LoginPage() {
 
       toast({
         title: "Login successful",
-        description: "You are now logged in!",
         status: "success",
-        duration: 3000,
+        duration: 2000,
         isClosable: true,
       });
-
-      setTimeout(() => {
-        router.push("/"); // redirect to home after toast
-      }, 3000);
+      router.push("/");
     }
     else{
         toast({

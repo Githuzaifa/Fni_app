@@ -142,11 +142,6 @@ const WIZARD_INITIAL: WizardForm = {
   schedule: "", eloMin: 400, eloMax: "",
 };
 
-const SEED_TOURNAMENTS: Tournament[] = [
-  { id: "s1", title: "The Scouring: 2v2 Fire Cup",    type: "Fire", game: "The Scouring",     status: "Active",    startTime: "Today, 6 PM UTC",    participants: "6/16",  duration: "1 hour",  fee: "€5",   region: "Europe",        feeType: "per_person" },
-  { id: "s2", title: "Age of Empires 2 Ice Showdown", type: "Ice",  game: "Age of Empires 2", status: "Scheduled", startTime: "Tomorrow, 4 PM UTC", participants: "12/32", duration: "2 hours", fee: "Free",  region: "North America", feeType: "per_person" },
-  { id: "s3", title: "War of Dots Trio Bash",          type: "Fire", game: "War of Dots",      status: "Scheduled", startTime: "Friday, 9 PM UTC",   participants: "3/10",  duration: "1 hour",  fee: "€10",  region: "Europe",        feeType: "per_team",  boosted: true },
-];
 
 // ──────────────────────────────────────────────
 // Sub-components
@@ -188,8 +183,8 @@ export default function Tournaments() {
   const totalGames = useAuthStore((state) => state.games);
 
   // ── tournament list ──
-  const [allTournaments,       setAllTournaments]       = useState<Tournament[]>(SEED_TOURNAMENTS);
-  const [displayedTournaments, setDisplayedTournaments] = useState<Tournament[]>(SEED_TOURNAMENTS);
+  const [allTournaments,       setAllTournaments]       = useState<Tournament[]>([]);
+  const [displayedTournaments, setDisplayedTournaments] = useState<Tournament[]>([]);
   const [loadingList,          setLoadingList]          = useState(true);
 
   // ── quick filters ──
@@ -257,9 +252,8 @@ export default function Tournaments() {
             createdBy:      t.createdBy,
             lockEnabled:    t.lockEnabled ?? true,
           }));
-          const combined = [...mapped, ...SEED_TOURNAMENTS];
-          setAllTournaments(combined);
-          setDisplayedTournaments(combined);
+          setAllTournaments(mapped);
+          setDisplayedTournaments(mapped);
         }
       } finally {
         setLoadingList(false);
@@ -428,10 +422,7 @@ export default function Tournaments() {
       if (!walletRes.ok) { toast({ title: "Payment failed", status: "error", duration: 3000, isClosable: true }); return; }
       setBalance(balance - BOOST_COST);
 
-      // Mark tournament as boosted (only hits DB if it's a real tournament ID)
-      if (!tournamentId.startsWith("s")) {
-        await fetch(`/api/tournaments/${tournamentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "boost" }) });
-      }
+      await fetch(`/api/tournaments/${tournamentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "boost" }) });
 
       const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       setAllTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, boosted: true, boostedUntil: until } : t));
@@ -448,9 +439,7 @@ export default function Tournaments() {
   const handleCancel = async (tournamentId: string) => {
     setCancellingId(tournamentId);
     try {
-      if (!tournamentId.startsWith("s")) {
-        await fetch(`/api/tournaments/${tournamentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) });
-      }
+      await fetch(`/api/tournaments/${tournamentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) });
       setAllTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Cancelled" } : t));
       setDisplayedTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Cancelled" } : t));
       toast({ title: "Tournament cancelled.", description: "Refunds will be processed within 24 hours.", status: "info", duration: 4000, isClosable: true });
@@ -466,13 +455,11 @@ export default function Tournaments() {
     if (!window.confirm("Delete this tournament? Entry fees will be refunded to participants.")) return;
     setDeletingId(tournamentId);
     try {
-      if (!tournamentId.startsWith("s")) {
-        const res = await fetch(`/api/tournaments/${tournamentId}`, { method: "DELETE" });
-        if (!res.ok) {
-          const err = await res.json();
-          toast({ title: err.message ?? "Delete failed", status: "error", duration: 3000, isClosable: true });
-          return;
-        }
+      const res = await fetch(`/api/tournaments/${tournamentId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json();
+        toast({ title: err.message ?? "Delete failed", status: "error", duration: 3000, isClosable: true });
+        return;
       }
       setAllTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
       setDisplayedTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
@@ -597,7 +584,10 @@ export default function Tournaments() {
   // Render helpers
   // ──────────────────────────────────────────────
   const isCreator = (t: Tournament) =>
-    !!user && !!t.createdBy && (t.createdBy === user._id || t.createdBy === user.username);
+    !!user &&
+    !!t.createdBy &&
+    ["gm", "moderator", "admin"].includes(user.role ?? "") &&
+    (t.createdBy === user._id || t.createdBy === user.username);
 
   function TournamentCard({ tournament }: { tournament: Tournament }) {
     const locked = !!tournament.lockEnabled && !!tournament.scheduledAtRaw &&
@@ -661,7 +651,7 @@ export default function Tournaments() {
                     ⚡ Boost €{BOOST_COST}
                   </Button>
                 )}
-                {tournament.status !== "Active" && tournament.status !== "Cancelled" && tournament.status !== "Completed" && !tournament.id.startsWith("s") && (
+                {tournament.status !== "Active" && tournament.status !== "Cancelled" && tournament.status !== "Completed" && (
                   <Button size="sm" colorScheme="teal" isLoading={openingLobbyId === tournament.id} onClick={() => handleOpenLobby(tournament.id)}>
                     Open Lobby
                   </Button>

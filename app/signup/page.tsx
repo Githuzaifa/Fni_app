@@ -84,15 +84,11 @@ useEffect(() => {
 
       toast({
         title: "Registration successful",
-        description: "You have been registered successfully!",
         status: "success",
-        duration: 3000,
+        duration: 2000,
         isClosable: true,
       });
-
-      setTimeout(() => {
-        router.push("/");
-      }, 3000);
+      router.push("/");
     }
   };
 
