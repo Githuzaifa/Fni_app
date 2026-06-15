@@ -442,6 +442,7 @@ export default function Tournaments() {
       await fetch(`/api/tournaments/${tournamentId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "cancel" }) });
       setAllTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Cancelled" } : t));
       setDisplayedTournaments((prev) => prev.map((t) => t.id === tournamentId ? { ...t, status: "Cancelled" } : t));
+      if (user?.activeTournamentId === tournamentId) setActiveTournament(null);
       toast({ title: "Tournament cancelled.", description: "Refunds will be processed within 24 hours.", status: "info", duration: 4000, isClosable: true });
     } finally {
       setCancellingId(null);
@@ -463,6 +464,7 @@ export default function Tournaments() {
       }
       setAllTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
       setDisplayedTournaments((prev) => prev.filter((t) => t.id !== tournamentId));
+      if (user?.activeTournamentId === tournamentId) setActiveTournament(null);
       toast({ title: "Tournament deleted.", status: "success", duration: 3000, isClosable: true });
     } finally {
       setDeletingId(null);
