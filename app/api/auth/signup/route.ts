@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import cookie from "cookie";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { User } from "../../../models/User";
 
@@ -9,13 +8,7 @@ export async function POST(req: Request) {
   try {
     await connectToDatabase();
 
-    const {firstName,
-        lastName,
-        age,
-        email,
-        username,
-        password,
-        nation} = await req.json();
+    const { firstName, lastName, age, email, username, password, nation } = await req.json();
 
     if (!firstName || !lastName || !age || !email || !username || !password || !nation) {
       return NextResponse.json(
@@ -51,7 +44,6 @@ export async function POST(req: Request) {
       nation,
       password: hashedPassword,
       gamerTags: {},
-      // elo will be added automatically by schema default
     });
 
     const token = jwt.sign(
@@ -60,47 +52,35 @@ export async function POST(req: Request) {
       { expiresIn: "1h" }
     );
 
-    const sessionExpiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+    const sessionExpiresAt = Date.now() + 60 * 60 * 1000;
 
-    // Set cookie for authentication
-    const setCookieHeader = cookie.serialize("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60, // 1 hour
-      path: "/",
-    });
-
-    // Convert to object and remove password
     const userObject = newUser.toObject();
     const { password: _, ...userWithoutPassword } = userObject;
 
     let eloObject = userWithoutPassword.elo;
-if (eloObject instanceof Map) {
-  eloObject = Object.fromEntries(eloObject);
-}
+    if (eloObject instanceof Map) {
+      eloObject = Object.fromEntries(eloObject);
+    }
 
-    // Ensure elo exists (fallback in case schema default didn't apply)
     const userWithElo = {
       ...userWithoutPassword,
-      elo: eloObject || {
-        scouring: 400,
-        ageOfEmpires2: 400,
-        warOfDots: 400
-      }
+      elo: eloObject || { scouring: 400, ageOfEmpires2: 400, warOfDots: 400 },
     };
 
-    return new NextResponse(
-      JSON.stringify({
-        message: "User registered successfully",
-        user: userWithElo,
-        sessionExpiresAt,
-      }),
-      {
-        status: 201,
-        headers: { "Set-Cookie": setCookieHeader },
-      }
+    const response = NextResponse.json(
+      { message: "User registered successfully", user: userWithElo, sessionExpiresAt },
+      { status: 201 }
     );
+
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60,
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Signup error:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });

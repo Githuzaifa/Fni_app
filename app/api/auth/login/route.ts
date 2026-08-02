@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import cookie from "cookie";
 import { connectToDatabase } from "../../../lib/mongodb";
 import { User } from "../../../models/User";
 
-// In your login API route
 export async function POST(req: Request) {
   try {
     await connectToDatabase();
@@ -45,28 +43,16 @@ export async function POST(req: Request) {
       { expiresIn: sessionDuration }
     );
 
-    const setCookieHeader = cookie.serialize("token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: cookieMaxAge,
-      path: "/",
-    });
-
     // Convert to plain object and handle the Map properly
     const userObject = user.toObject();
     const { password: _, ...userWithoutPassword } = userObject;
-    
-    // Ensure gamerTags is properly converted from Map to plain object
-    if (userWithoutPassword.gamerTags) {
-      if (userWithoutPassword.gamerTags instanceof Map) {
-        userWithoutPassword.gamerTags = Object.fromEntries(userWithoutPassword.gamerTags);
-      }
-    } else {
+
+    if (userWithoutPassword.gamerTags instanceof Map) {
+      userWithoutPassword.gamerTags = Object.fromEntries(userWithoutPassword.gamerTags);
+    } else if (!userWithoutPassword.gamerTags) {
       userWithoutPassword.gamerTags = {};
     }
 
-    // Ensure elo is properly converted from Map to plain object
     if (userWithoutPassword.elo instanceof Map) {
       userWithoutPassword.elo = Object.fromEntries(userWithoutPassword.elo);
     }
@@ -74,17 +60,20 @@ export async function POST(req: Request) {
       userWithoutPassword.elo = { scouring: 400, ageOfEmpires2: 400, warOfDots: 400 };
     }
 
-    return new NextResponse(
-      JSON.stringify({
-        message: "Login successful",
-        user: userWithoutPassword,
-        sessionExpiresAt,
-      }),
-      {
-        status: 200,
-        headers: { "Set-Cookie": setCookieHeader },
-      }
+    const response = NextResponse.json(
+      { message: "Login successful", user: userWithoutPassword, sessionExpiresAt },
+      { status: 200 }
     );
+
+    response.cookies.set("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: cookieMaxAge,
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json({ message: "Server error" }, { status: 500 });
