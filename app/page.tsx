@@ -88,10 +88,6 @@ export default function HomeScreen() {
         boxShadow="xl"
         minH="80vh"
       >
-        <Heading mb={10} textAlign="center">
-          News
-        </Heading>
-
         <VStack spacing={10} align="stretch" width="100%" px={4}>
           {/* News Box */}
           <Box

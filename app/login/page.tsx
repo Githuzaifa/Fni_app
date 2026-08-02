@@ -122,7 +122,7 @@ export default function LoginPage() {
                 isChecked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
               >
-                Stay logged in for 30 days
+                Remember me
               </Checkbox>
 
               <Button type="submit" colorScheme="teal" size="lg" w="full">

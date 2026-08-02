@@ -323,7 +323,7 @@ export default function Profile() {
                   borderRadius="full"
                 />
                 <Text fontSize="xs" color="gray.500" textAlign="right">
-                  {elo >= 500 ? "Above Average" : "Below Average"}
+                  {elo >= 800 ? "Elite" : elo >= 500 ? "Above Average" : elo >= 300 ? "Getting there!" : "Keep climbing!"}
                 </Text>
               </VStack>
             </Box>

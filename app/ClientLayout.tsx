@@ -35,7 +35,7 @@ export default function ClientLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [themeMode, setThemeMode] = useState<"fire" | "ice">("ice");
+  const [themeMode, setThemeMode] = useState<"fire" | "ice">("fire");
   const [hasMounted, setHasMounted] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const balance = useAuthStore((state) => state.balance);
@@ -134,6 +134,16 @@ export default function ClientLayout({
                 objectFit="contain"
                 mt={6}
               />
+              <Text
+                fontSize="lg"
+                fontWeight="bold"
+                textAlign="center"
+                letterSpacing="wide"
+                color={themeMode === "fire" ? "orange.300" : "teal.500"}
+                mb={2}
+              >
+                Fire &apos;n Ice Tournaments Beta
+              </Text>
               <Header themeMode={themeMode} toggleTheme={toggleTheme} />
               {children}
               {hasMounted && isAuthenticated && <RightMenu themeMode={themeMode} />}

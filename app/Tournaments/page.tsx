@@ -330,15 +330,6 @@ export default function Tournaments() {
     const game       = totalGames?.find((g) => g.name === gameName);
     const tournament = allTournaments.find((t) => t.id === tournamentId);
 
-    if (tournament && tournament.lockEnabled && tournament.scheduledAtRaw) {
-      const lockTime = getLockTime(tournament.scheduledAtRaw, tournament.type);
-      if (new Date() >= lockTime) {
-        const lockMsg = tournament.type === "Ice" ? "Ice tournaments lock 24 hours before start." : "Fire tournaments lock 30 minutes before start.";
-        toast({ title: "Registration locked", description: `${lockMsg} No refunds after the lock time.`, status: "error", duration: 4000, isClosable: true });
-        return;
-      }
-    }
-
     if (tournament && game && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
       const userElo = user.elo?.[game.id] ?? 0;
       const min = tournament.eloMin ?? 0;
@@ -603,9 +594,6 @@ export default function Tournaments() {
         {tournament.boosted && (
           <Badge colorScheme="yellow" position="absolute" top={3} right={3} fontSize="xs">⚡ BOOSTED</Badge>
         )}
-        {locked && (
-          <Badge colorScheme="red" position="absolute" top={3} left={3} fontSize="xs">🔒 LOCKED</Badge>
-        )}
         <SimpleGrid columns={[1, null, 2]} spacing={4}>
           <Stack spacing={2}>
             <Heading size="md">{tournament.title}</Heading>
@@ -638,8 +626,8 @@ export default function Tournaments() {
             ) : tournament.status === "Active" ? (
               <Badge colorScheme="green" mt={4} px={3} py={2} borderRadius="full" fontSize="sm">Lobby Active</Badge>
             ) : tournament.status !== "Cancelled" && tournament.status !== "Completed" ? (
-              <Button colorScheme="brand" mt={4} isDisabled={locked} onClick={() => openModalForJoin(tournament.id)}>
-                {locked ? "Locked" : "Join Queue"}
+              <Button colorScheme="brand" mt={4} onClick={() => openModalForJoin(tournament.id)}>
+                Join Queue
               </Button>
             ) : null}
 
