@@ -60,6 +60,8 @@ export async function POST(req: Request) {
       { expiresIn: "1h" }
     );
 
+    const sessionExpiresAt = Date.now() + 60 * 60 * 1000; // 1 hour
+
     // Set cookie for authentication
     const setCookieHeader = cookie.serialize("token", token, {
       httpOnly: true,
@@ -92,6 +94,7 @@ if (eloObject instanceof Map) {
       JSON.stringify({
         message: "User registered successfully",
         user: userWithElo,
+        sessionExpiresAt,
       }),
       {
         status: 201,

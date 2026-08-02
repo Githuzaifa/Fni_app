@@ -8,7 +8,7 @@ import {
   Box,
   Flex,
 } from "@chakra-ui/react";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import NextLink from "next/link";
 import logo from "../../../public/fire-ice-logo.png"; // Adjust path if needed
 
@@ -49,6 +49,8 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
   const user            = useAuthStore((state) => state.user);
   const role            = user?.role ?? "player";
   const isMod           = role === "moderator" || role === "admin";
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => { setHasMounted(true); }, []);
 
   return (
     <Box
@@ -87,7 +89,7 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
         <VStack spacing={2} align="stretch" w="full">
           <LinkButton url="/" title="Home" themeMode={themeMode} />
 
-          {isAuthenticated && (
+          {hasMounted && isAuthenticated && (
             <>
               <LinkButton url="/profile"     title="Profile"        themeMode={themeMode} />
               <LinkButton url="/Tournaments" title="Tournaments"    themeMode={themeMode} />
@@ -104,7 +106,7 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
 
       {/* Bottom Section */}
       <VStack spacing={3} align="stretch" borderTopWidth="1px" pt={3}>
-        {!isAuthenticated && (
+        {hasMounted && !isAuthenticated && (
           <>
             <NextLink href="/login" passHref legacyBehavior>
               <Button as="a" colorScheme="teal" w="full">

@@ -37,6 +37,7 @@ export async function POST(req: Request) {
 
     const sessionDuration = rememberMe ? "30d" : "1h";
     const cookieMaxAge    = rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
+    const sessionExpiresAt = Date.now() + cookieMaxAge * 1000;
 
     const token = jwt.sign(
       { userId: user._id, role: user.role ?? "player" },
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
       JSON.stringify({
         message: "Login successful",
         user: userWithoutPassword,
+        sessionExpiresAt,
       }),
       {
         status: 200,

@@ -33,17 +33,18 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       title, game, type, format, maxParticipants,
-      scheduledAt, fee, feeType, region, eloMin, eloMax, createdBy, prizes,
+      scheduledAt, fee, feeType, region, eloMin, eloMax, prizes,
     } = body;
 
-    if (!title || !game || !type || !format || !maxParticipants || !scheduledAt || !createdBy) {
+    if (!title || !game || !type || !format || !maxParticipants || !scheduledAt) {
       return NextResponse.json({ message: "Missing required fields" }, { status: 400 });
     }
 
     const tournament = await Tournament.create({
       title, game, type, format, maxParticipants,
       scheduledAt, fee, feeType, region, eloMin, eloMax,
-      createdBy, prizes,
+      createdBy: currentUser._id.toString(),
+      prizes,
     });
 
     return NextResponse.json({ tournament }, { status: 201 });

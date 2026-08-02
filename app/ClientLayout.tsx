@@ -11,7 +11,6 @@ import {
   Text,
 } from "@chakra-ui/react";
 import { iceTheme, fireTheme } from "./components/Layout/theme";
-import { useState } from "react";
 import BackgroundVisual from "./components/Layout/BackgroundLayout";
 import Header from "./components/Layout/Header";
 import RightMenu from "./components/Layout/RightMenu";
@@ -19,6 +18,7 @@ import Footer from "./components/Layout/Footer";
 import logo from "../public/fire-ice-logo.png";
 import { useAuthStore } from "./store/authstore";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,10 +36,29 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const [themeMode, setThemeMode] = useState<"fire" | "ice">("ice");
+  const [hasMounted, setHasMounted] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const balance = useAuthStore((state) => state.balance);
+  const logout = useAuthStore((state) => state.logout);
+  const sessionExpiresAt = useAuthStore((state) => state.sessionExpiresAt);
   const router = useRouter();
 
+  // Mark as mounted so auth state from localStorage is applied before rendering auth UI
+  useEffect(() => { setHasMounted(true); }, []);
+
+  // Auto-logout when the session expires
+  useEffect(() => {
+    if (!isAuthenticated || !sessionExpiresAt) return;
+
+    const remaining = sessionExpiresAt - Date.now();
+    if (remaining <= 0) {
+      logout();
+      return;
+    }
+
+    const timer = setTimeout(() => logout(), remaining);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, sessionExpiresAt, logout]);
 
   const toggleTheme = () =>
     setThemeMode((prev) => (prev === "ice" ? "fire" : "ice"));
@@ -62,7 +81,7 @@ export default function ClientLayout({
           </Box>
 
           {/* 💰 WALLET BUTTON (FIXED + CLICKABLE) */}
-          {isAuthenticated && (
+          {hasMounted && isAuthenticated && (
             <Box
               position="fixed"
               top="20px"
@@ -117,7 +136,7 @@ export default function ClientLayout({
               />
               <Header themeMode={themeMode} toggleTheme={toggleTheme} />
               {children}
-              {isAuthenticated && <RightMenu themeMode={themeMode} />}
+              {hasMounted && isAuthenticated && <RightMenu themeMode={themeMode} />}
               <Footer />
             </VStack>
           </Box>

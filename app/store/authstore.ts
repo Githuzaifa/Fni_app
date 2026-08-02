@@ -39,8 +39,9 @@ interface AuthState {
   user: User | null;
   balance: number;
   games: Game[];
-  login: (user: User) => void;
-  logout: () => void;
+  sessionExpiresAt: number | null;
+  login: (user: User, expiresAt?: number) => void;
+  logout: () => Promise<void>;
   updateGamerTag: (gameName: string, tag: string) => void;
   setBalance: (amount: number) => void;
   setActiveTournament: (id: string | null) => void;
@@ -48,20 +49,23 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({ 
+    (set) => ({
       isAuthenticated: false,
       user: null,
       balance: 0,
+      sessionExpiresAt: null,
 
       games: [
         { id: "scouring", name: "The Scouring" },
         { id: "warOfDots", name: "War of Dots" },
         { id: "ageOfEmpires2", name: "Age of Empires 2" },
       ],
-      login: (user) =>
+
+      login: (user, expiresAt) =>
         set({
           isAuthenticated: true,
           user,
+          sessionExpiresAt: expiresAt ?? null,
         }),
 
       logout: async () => {
@@ -73,7 +77,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.error("Logout request failed:", error);
         }
-        set({ isAuthenticated: false, user: null });
+        set({ isAuthenticated: false, user: null, sessionExpiresAt: null });
       },
 
       updateGamerTag: (gameName, tag) =>
@@ -98,10 +102,16 @@ export const useAuthStore = create<AuthState>()(
 
     }),
 
-
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
+      // Only persist auth-relevant fields; games are static and don't need storage
+      partialize: (state) => ({
+        isAuthenticated: state.isAuthenticated,
+        user: state.user,
+        balance: state.balance,
+        sessionExpiresAt: state.sessionExpiresAt,
+      }),
     }
   )
 );

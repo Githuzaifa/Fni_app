@@ -54,7 +54,7 @@ export async function PATCH(
 
       const isOwner = tournament.createdBy === currentUser._id.toString() ||
                       tournament.createdBy === currentUser.username;
-      if (!isOwner && !["moderator", "admin"].includes(currentUser.role ?? "")) {
+      if (!isOwner && !["gm", "moderator", "admin"].includes(currentUser.role ?? "")) {
         return NextResponse.json({ message: "Not authorised" }, { status: 403 });
       }
       if (tournament.status === "Cancelled" || tournament.status === "Completed") {

@@ -79,7 +79,7 @@ useEffect(() => {
     setMessage(data.message || "Something went wrong");
 
     if (res.ok) {
-      login(data.user);
+      login(data.user, data.sessionExpiresAt);
       fetch("/api/wallet").then((r) => r.json()).then((w) => { if (w.balance !== undefined) setBalance(w.balance); }).catch(() => {});
 
       toast({
