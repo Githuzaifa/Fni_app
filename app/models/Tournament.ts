@@ -31,6 +31,7 @@ export interface ITournament extends Document {
   lockEnabled:         boolean;
   participants:        IParticipant[];
   remindersSent:       { h24: boolean; m30: boolean };
+  reserveQueue:        IParticipant[];
   winnerId?:           string;
   winnerUsername?:     string;
 }
@@ -71,6 +72,7 @@ const tournamentSchema = new Schema<ITournament>(
     lockEnabled:     { type: Boolean, default: true },
     participants:    { type: [participantSchema], default: [] },
     remindersSent:   { type: { h24: Boolean, m30: Boolean }, default: { h24: false, m30: false } },
+    reserveQueue:    { type: [participantSchema], default: [] },
     winnerId:        { type: String },
     winnerUsername:  { type: String },
   },

@@ -39,30 +39,40 @@ export const DURATION_OPTIONS: { value: BanDuration; label: string }[] = [
 ];
 
 export interface IBan extends Document {
-  fniUsername:   string;
+  fniUsername:    string;
   steamUsername?: string;
   epicUsername?:  string;
-  reason:  string;
-  issuedBy: string;
-  duration: BanDuration;
-  expiresAt?: Date;
-  status: "Active" | "Lifted" | "Expired";
+  reason:         string;
+  issuedBy:       string;
+  issuedByUserId?: string;
+  issuedByRole:   "gm" | "moderator" | "admin";
+  severity:       "standard" | "severe";
+  scope:          "platform" | "gm_only";
+  restrictedGmId?: string;
+  duration:       BanDuration;
+  expiresAt?:     Date;
+  status:         "Active" | "Lifted" | "Expired";
 }
 
 const banSchema = new Schema<IBan>(
   {
-    fniUsername:   { type: String, required: true },
-    steamUsername: { type: String },
-    epicUsername:  { type: String },
-    reason:   { type: String, required: true },
-    issuedBy: { type: String, required: true },
+    fniUsername:    { type: String, required: true },
+    steamUsername:  { type: String },
+    epicUsername:   { type: String },
+    reason:         { type: String, required: true },
+    issuedBy:       { type: String, required: true },
+    issuedByUserId: { type: String },
+    issuedByRole:   { type: String, enum: ["gm", "moderator", "admin"], default: "gm" },
+    severity:       { type: String, enum: ["standard", "severe"], default: "standard" },
+    scope:          { type: String, enum: ["platform", "gm_only"], default: "platform" },
+    restrictedGmId: { type: String },
     duration: {
       type: String,
       enum: Object.keys(DURATION_MS).concat(["permanent"]),
       required: true,
     },
     expiresAt: { type: Date },
-    status: { type: String, enum: ["Active", "Lifted", "Expired"], default: "Active" },
+    status:    { type: String, enum: ["Active", "Lifted", "Expired"], default: "Active" },
   },
   { timestamps: true }
 );

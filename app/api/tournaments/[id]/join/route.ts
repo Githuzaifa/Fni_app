@@ -4,13 +4,20 @@ import { getUserFromRequest } from "../../../../lib/auth";
 import { Tournament } from "../../../../models/Tournament";
 import { User } from "../../../../models/User";
 import { Wallet } from "../../../../models/Wallet";
+import { Ban } from "../../../../models/Ban";
 
 const FEE_MAP: Record<string, number> = { "€5": 5, "€10": 10 };
 
 const GAME_ID: Record<string, string> = {
-  "The Scouring":   "scouring",
-  "Age of Empires 2": "ageOfEmpires2",
-  "War of Dots":    "warOfDots",
+  "The Scouring":        "scouring",
+  "Age of Empires 2":    "ageOfEmpires2",
+  "War of Dots":         "warOfDots",
+  "Rocket League":       "rocketLeague",
+  "League of Legends":   "leagueOfLegends",
+  "Dota 2":              "dota2",
+  "Total War: Rome 2":   "totalWarRome2",
+  "Counter-Strike 2":    "cs2",
+  "Company of Heroes 3": "companyOfHeroes3",
 };
 
 export async function POST(
@@ -34,11 +41,8 @@ export async function POST(
     if (tournament.status === "Completed") {
       return NextResponse.json({ message: "Tournament has ended" }, { status: 400 });
     }
-    if ((tournament.currentParticipants ?? 0) >= tournament.maxParticipants) {
-      return NextResponse.json({ message: "Tournament is full" }, { status: 400 });
-    }
 
-    // Already joined this tournament
+    // Already joined this tournament (main queue)
     const alreadyIn = tournament.participants.some(
       (p) => p.userId === currentUser._id.toString()
     );
@@ -60,7 +64,32 @@ export async function POST(
       return NextResponse.json({ message: "You are already in a tournament" }, { status: 400 });
     }
 
-    // ELO check
+    // ── Ban check ──
+    const activeBans = await Ban.find({
+      fniUsername: currentUser.username,
+      status: "Active",
+      $or: [{ expiresAt: { $gt: new Date() } }, { duration: "permanent" }],
+    });
+
+    const platformBan = activeBans.find((b: any) => b.scope === "platform" || !b.scope);
+    if (platformBan) {
+      return NextResponse.json(
+        { message: "You are currently banned from all FnI tournaments." },
+        { status: 403 }
+      );
+    }
+
+    const gmBan = activeBans.find(
+      (b: any) => b.scope === "gm_only" && b.restrictedGmId === tournament.createdBy
+    );
+    if (gmBan) {
+      return NextResponse.json(
+        { message: "You are restricted from this Game Master's tournaments." },
+        { status: 403 }
+      );
+    }
+
+    // ── ELO check ──
     const gameId = GAME_ID[tournament.game];
     if (gameId && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
       const eloMap = currentUser.elo instanceof Map
@@ -75,7 +104,42 @@ export async function POST(
       }
     }
 
-    // Charge entry fee
+    // Snapshot ELO and gamer tag
+    const eloMap      = currentUser.elo instanceof Map ? currentUser.elo : new Map(Object.entries(currentUser.elo ?? {}));
+    const tagsMap     = currentUser.gamerTags instanceof Map ? currentUser.gamerTags : new Map(Object.entries(currentUser.gamerTags ?? {}));
+    const eloValue    = (eloMap.get(gameId ?? "") as number | undefined) ?? 400;
+    const gamerTagValue = tagsMap.get(gameId ?? "") as string | undefined;
+
+    // ── If tournament is full, add to reserve queue ──
+    const isFull = (tournament.currentParticipants ?? 0) >= tournament.maxParticipants;
+    if (isFull) {
+      const alreadyInQueue = (tournament.reserveQueue ?? []).some(
+        (p) => p.userId === currentUser._id.toString()
+      );
+      if (alreadyInQueue) {
+        return NextResponse.json({ message: "You are already in the reserve queue" }, { status: 400 });
+      }
+
+      await Tournament.findByIdAndUpdate(id, {
+        $push: {
+          reserveQueue: {
+            userId:   currentUser._id.toString(),
+            username: currentUser.username,
+            email:    currentUser.email,
+            noShow:   false,
+            elo:      eloValue,
+            gamerTag: gamerTagValue,
+          },
+        },
+      });
+
+      return NextResponse.json({
+        message:   "Tournament is full. You've been added to the reserve queue — you'll get a slot if someone drops out before lock.",
+        inReserve: true,
+      });
+    }
+
+    // ── Charge entry fee ──
     const feeAmount = FEE_MAP[tournament.fee] ?? 0;
     let newBalance: number | undefined;
 
@@ -95,19 +159,10 @@ export async function POST(
       newBalance = wallet.balance;
     }
 
-    // Assign to Team A or B based on format (e.g. "2v2" → teamSize 2)
-    const teamSize = parseInt(tournament.format?.split("v")[0] ?? "1") || 1;
-    const team: "A" | "B" = (tournament.currentParticipants ?? 0) < teamSize ? "A" : "B";
-
-    // Snapshot ELO and gamer tag at join time so ScreenShare can show them without extra queries
-    const eloMap    = currentUser.elo instanceof Map
-      ? currentUser.elo
-      : new Map(Object.entries(currentUser.elo ?? {}));
-    const tagsMap   = currentUser.gamerTags instanceof Map
-      ? currentUser.gamerTags
-      : new Map(Object.entries(currentUser.gamerTags ?? {}));
-    const eloValue  = (eloMap.get(gameId ?? "") as number | undefined) ?? 400;
-    const gamerTagValue = tagsMap.get(gameId ?? "") as string | undefined;
+    // Assign to Team A or B (FFA has no teams)
+    const format   = tournament.format ?? "1v1";
+    const tSize    = format === "FFA" ? tournament.maxParticipants : (parseInt(format.split("v")[0]) || 1);
+    const team: "A" | "B" = (tournament.currentParticipants ?? 0) < tSize ? "A" : "B";
 
     // Push participant + increment count
     await Tournament.findByIdAndUpdate(id, {
@@ -118,7 +173,7 @@ export async function POST(
           username: currentUser.username,
           email:    currentUser.email,
           noShow:   false,
-          team,
+          team:     format === "FFA" ? undefined : team,
           elo:      eloValue,
           gamerTag: gamerTagValue,
         },

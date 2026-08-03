@@ -2,7 +2,8 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
   VStack, Button, Box, Text, HStack, Spinner, Badge,
-  IconButton, Tooltip, Divider,
+  IconButton, Tooltip, Divider, NumberInput, NumberInputField,
+  NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaExpand, FaCompress } from "react-icons/fa";
 import { Room, RoomEvent, Track } from "livekit-client";
@@ -166,8 +167,9 @@ export default function ScreenShare({
   const [error,           setError]          = useState<string | null>(null);
   const [remoteStreams,   setRemoteStreams]   = useState<RemoteStream[]>([]);
   const [focused,         setFocused]        = useState<string | null>(null);
-  const [countdown,       setCountdown]      = useState<number | null>(null);
-  const [showSharePrompt, setShowSharePrompt] = useState(false);
+  const [countdown,        setCountdown]       = useState<number | null>(null);
+  const [showSharePrompt,  setShowSharePrompt]  = useState(false);
+  const [roundSeconds,     setRoundSeconds]     = useState(30);
 
   const addRemote = useCallback((identity: string, track: MediaStreamTrack) => {
     setRemoteStreams((prev) => [...prev.filter((s) => s.identity !== identity), { identity, track }]);
@@ -235,7 +237,7 @@ export default function ScreenShare({
       try {
         const data = JSON.parse(new TextDecoder().decode(payload));
         if (data?.type === "START_SCREENSHARE") {
-          setCountdown(10);
+          setCountdown(data.countdown ?? 10);
         }
       } catch {
         // ignore malformed messages
@@ -278,10 +280,9 @@ export default function ScreenShare({
   const sendStartSignal = () => {
     if (!roomRef.current) return;
     roomRef.current.localParticipant.publishData(
-      new TextEncoder().encode(JSON.stringify({ type: "START_SCREENSHARE" }))
+      new TextEncoder().encode(JSON.stringify({ type: "START_SCREENSHARE", countdown: roundSeconds }))
     );
-    // GM also sees the countdown locally
-    setCountdown(10);
+    setCountdown(roundSeconds);
   };
 
   const toggleFocus = (identity: string) =>
@@ -310,16 +311,33 @@ export default function ScreenShare({
   return (
     <VStack spacing={3} w="100%" flex="1">
 
-      {/* GM-only: Start Screen Share Round button */}
+      {/* GM-only: configurable round start */}
       {isGM && connected && (
-        <Button
-          colorScheme="purple"
-          size="md"
-          w="100%"
-          onClick={sendStartSignal}
-        >
-          Start Screen Share Round
-        </Button>
+        <HStack w="100%" spacing={2}>
+          <Button
+            colorScheme="purple"
+            size="md"
+            flex="1"
+            onClick={sendStartSignal}
+          >
+            🎮 Start Round ({roundSeconds}s countdown)
+          </Button>
+          <NumberInput
+            value={roundSeconds}
+            min={5}
+            max={300}
+            step={5}
+            onChange={(_, val) => setRoundSeconds(isNaN(val) ? 30 : val)}
+            w="100px"
+            size="md"
+          >
+            <NumberInputField bg="gray.700" color="white" borderColor="gray.600" />
+            <NumberInputStepper>
+              <NumberIncrementStepper color="gray.300" />
+              <NumberDecrementStepper color="gray.300" />
+            </NumberInputStepper>
+          </NumberInput>
+        </HStack>
       )}
 
       {/* Countdown overlay — visible to all when countdown is active */}

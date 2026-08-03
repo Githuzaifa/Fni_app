@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   HStack, VStack, Heading, Divider, Box, Text,
   Table, Thead, Tbody, Tr, Th, Td, Avatar, Button, Badge,
@@ -61,17 +61,42 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
   const [game,          setGame]          = useState("");
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [maximized,     setMaximized]     = useState<"screen" | "chat" | null>(null);
+  const screenPanelRef = useRef<HTMLDivElement>(null);
+  const chatPanelRef   = useRef<HTMLDivElement>(null);
 
   // Ban state
   const [selectedPlayer, setSelected]    = useState<LobbyPlayer | null>(null);
   const [banReason,      setBanReason]   = useState("");
   const [banDuration,    setBanDuration] = useState("1week");
+  const [banSeverity,    setBanSeverity] = useState<"standard" | "severe">("standard");
   const [banning,        setBanning]     = useState(false);
 
   // End tournament state
   const [winnerId,      setWinnerId]     = useState("");
   const [endingMatch,   setEndingMatch]  = useState(false);
   const [matchEnded,    setMatchEnded]   = useState(false);
+
+  // Exit maximized state when user presses Escape / browser exits fullscreen
+  useEffect(() => {
+    const onFsChange = () => {
+      if (!document.fullscreenElement) setMaximized(null);
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => document.removeEventListener("fullscreenchange", onFsChange);
+  }, []);
+
+  const handleMaximize = useCallback(async (panel: "screen" | "chat") => {
+    if (maximized === panel) {
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+      setMaximized(null);
+    } else {
+      setMaximized(panel);
+      const ref = panel === "screen" ? screenPanelRef : chatPanelRef;
+      if (ref.current?.requestFullscreen) {
+        await ref.current.requestFullscreen().catch(() => {});
+      }
+    }
+  }, [maximized]);
 
   // Fetch real participants from DB
   useEffect(() => {
@@ -97,6 +122,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
     setSelected(player);
     setBanReason("");
     setBanDuration("1week");
+    setBanSeverity("standard");
     banModal.onOpen();
   }
 
@@ -107,14 +133,19 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
     }
     setBanning(true);
     try {
+      const role = currentUser?.role ?? "gm";
       await fetch("/api/admin/bans", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fniUsername:  selectedPlayer.username,
-          reason:       banReason,
-          duration:     banDuration,
-          issuedBy:     currentUser?.username ?? "GM",
+          fniUsername:    selectedPlayer.username,
+          reason:         banReason,
+          duration:       banDuration,
+          issuedBy:       currentUser?.username ?? "GM",
+          issuedByUserId: currentUser?._id,
+          issuedByRole:   role,
+          severity:       banSeverity,
+          restrictedGmId: currentUser?._id,
         }),
       });
 
@@ -195,6 +226,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
       <HStack align="start" spacing={4} w="100%" flexWrap="nowrap">
         {/* Screen Share Panel */}
         <Box
+          ref={screenPanelRef}
           flex={maximized === "screen" ? "1" : "3"}
           display={maximized === "chat" ? "none" : "flex"}
           flexDirection="column"
@@ -208,14 +240,14 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
             <Text fontWeight="bold" color="teal.300" fontSize="sm" letterSpacing="wide" textTransform="uppercase">
               Screen Share
             </Text>
-            <Tooltip label={maximized === "screen" ? "Restore" : "Maximise"} placement="left">
+            <Tooltip label={maximized === "screen" ? "Exit fullscreen" : "Fullscreen"} placement="left">
               <IconButton
                 size="xs"
                 variant="ghost"
                 colorScheme="teal"
                 icon={maximized === "screen" ? <FaCompress /> : <FaExpand />}
-                aria-label="Toggle screen maximise"
-                onClick={() => setMaximized(maximized === "screen" ? null : "screen")}
+                aria-label="Toggle screen fullscreen"
+                onClick={() => handleMaximize("screen")}
               />
             </Tooltip>
           </HStack>
@@ -236,6 +268,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
 
         {/* Chat Panel */}
         <Box
+          ref={chatPanelRef}
           flex={maximized === "chat" ? "1" : "1.2"}
           display={maximized === "screen" ? "none" : "flex"}
           flexDirection="column"
@@ -249,14 +282,14 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
             <Text fontWeight="bold" color="teal.300" fontSize="sm" letterSpacing="wide" textTransform="uppercase">
               Lobby Chat
             </Text>
-            <Tooltip label={maximized === "chat" ? "Restore" : "Maximise"} placement="left">
+            <Tooltip label={maximized === "chat" ? "Exit fullscreen" : "Fullscreen"} placement="left">
               <IconButton
                 size="xs"
                 variant="ghost"
                 colorScheme="teal"
                 icon={maximized === "chat" ? <FaCompress /> : <FaExpand />}
-                aria-label="Toggle chat maximise"
-                onClick={() => setMaximized(maximized === "chat" ? null : "chat")}
+                aria-label="Toggle chat fullscreen"
+                onClick={() => handleMaximize("chat")}
               />
             </Tooltip>
           </HStack>
@@ -357,6 +390,19 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
                   <Text><strong>Username:</strong> {selectedPlayer.username}</Text>
                   <Text><strong>Email:</strong> {selectedPlayer.email}</Text>
                 </Box>
+                <FormControl isRequired>
+                  <FormLabel>Infringement Severity</FormLabel>
+                  <Select value={banSeverity} onChange={(e) => setBanSeverity(e.target.value as "standard" | "severe")}>
+                    <option value="standard">Standard — unsportsmanlike / rule violation</option>
+                    <option value="severe">Severe — cheating / hacking / matchfixing</option>
+                  </Select>
+                </FormControl>
+                <Alert status={banSeverity === "severe" ? "error" : "info"} borderRadius="md" fontSize="sm">
+                  <AlertIcon />
+                  {banSeverity === "severe"
+                    ? "Severe bans are platform-wide and block the player from ALL FnI tournaments for the full duration."
+                    : "Standard bans only affect your own tournaments. The player can join other GMs' tournaments normally."}
+                </Alert>
                 <FormControl isRequired>
                   <FormLabel>Duration</FormLabel>
                   <Select value={banDuration} onChange={(e) => setBanDuration(e.target.value)}>

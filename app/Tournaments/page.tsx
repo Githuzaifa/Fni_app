@@ -49,14 +49,25 @@ import {
 // ──────────────────────────────────────────────
 // Constants
 // ──────────────────────────────────────────────
-const GAMES         = ["The Scouring", "Age of Empires 2", "War of Dots"];
+const GAMES = [
+  "The Scouring", "Age of Empires 2", "War of Dots",
+  "Rocket League", "League of Legends", "Dota 2",
+  "Total War: Rome 2", "Counter-Strike 2", "Company of Heroes 3",
+];
 const GAME_IMAGE: Record<string, string> = {
-  "The Scouring":     "/scouring.jpg",
-  "Age of Empires 2": "/age_of_empires_2.jpg",
-  "War of Dots":      "/war_of_dots.jpg",
+  "The Scouring":        "/scouring.jpg",
+  "Age of Empires 2":    "/age_of_empires_2.jpg",
+  "War of Dots":         "/war_of_dots.jpg",
+  "Rocket League":       "/rocket_league.jpg",
+  "League of Legends":   "/league_of_legends.jpg",
+  "Dota 2":              "/dota2.jpg",
+  "Total War: Rome 2":   "/total_war_rome2.jpg",
+  "Counter-Strike 2":    "/counter_strike_2.jpg",
+  "Company of Heroes 3": "/company_of_heroes_3.jpg",
 };
 const FEE_TYPES     = ["Free", "€5", "€10"];
-const PLAYER_COUNTS = ["1v1", "2v2", "3v3", "5v5"];
+const PLAYER_COUNTS = ["1v1", "2v2", "3v3", "5v5", "FFA"];
+const MATCH_FORMATS = ["Single", "Best of 3", "Best of 5"];
 const REGIONS       = ["Europe", "North America", "South America", "Asia", "Oceania", "Middle East", "Africa"];
 const BOOST_COST    = 5;
 const FNI_RULES_URL = "https://fni.gg/rules";
@@ -69,6 +80,7 @@ function feeAmount(fee: string): number {
 }
 
 function teamSize(format: string): number {
+  if (format === "FFA") return 1;
   return parseInt(format.split("v")[0]) || 1;
 }
 
@@ -111,6 +123,7 @@ interface Tournament {
   startTime: string;
   scheduledAtRaw?: string;
   participants: string;
+  reserveCount: number;
   duration: string;
   fee: string;
   feeType?: "per_person" | "per_team";
@@ -124,9 +137,11 @@ interface Tournament {
 }
 
 interface WizardForm {
+  title: string;
   game: string;
   type: "Fire" | "Ice" | "";
   format: string;
+  matchFormat: string;
   maxParticipants: number;
   fee: string;
   feeType: "per_person" | "per_team";
@@ -137,8 +152,8 @@ interface WizardForm {
 }
 
 const WIZARD_INITIAL: WizardForm = {
-  game: "", type: "", format: "1v1", maxParticipants: 16,
-  fee: "Free", feeType: "per_person", region: "Europe",
+  title: "", game: "", type: "", format: "1v1", matchFormat: "Single",
+  maxParticipants: 16, fee: "Free", feeType: "per_person", region: "Europe",
   schedule: "", eloMin: 400, eloMax: "",
 };
 
@@ -146,6 +161,32 @@ const WIZARD_INITIAL: WizardForm = {
 // ──────────────────────────────────────────────
 // Sub-components
 // ──────────────────────────────────────────────
+function SlotDisplay({ participants, reserveCount }: { participants: string; reserveCount: number }) {
+  const [curStr, maxStr] = participants.split("/");
+  const cur = parseInt(curStr) || 0;
+  const max = parseInt(maxStr) || 0;
+  const display = Math.min(max, 16);
+  return (
+    <Box>
+      <HStack spacing="3px" flexWrap="wrap" mb={1}>
+        {Array.from({ length: display }).map((_, i) => (
+          <Box
+            key={i}
+            w="10px"
+            h="10px"
+            borderRadius="full"
+            bg={i < cur ? "green.400" : "gray.600"}
+            title={i < cur ? "Registered" : "Open slot"}
+          />
+        ))}
+      </HStack>
+      <Text fontSize="xs" color="gray.400">
+        {cur}/{max} players{reserveCount > 0 ? ` (+${reserveCount} in queue)` : ""}
+      </Text>
+    </Box>
+  );
+}
+
 function GameCard({ game, isSelected, onSelect }: { game: string; isSelected: boolean; onSelect: () => void }) {
   return (
     <Box onClick={onSelect} cursor="pointer" border="2px solid" borderColor={isSelected ? "blue.500" : "gray.200"} borderRadius="xl" bg={isSelected ? "blue.500" : "transparent"} p={6} textAlign="center" transition="all 0.2s" _hover={{ shadow: "lg", borderColor: "blue.300" }} minW="150px" w="160px">
@@ -241,6 +282,7 @@ export default function Tournaments() {
             startTime:      new Date(t.scheduledAt).toLocaleString('en-GB'),
             scheduledAtRaw: t.scheduledAt,
             participants:   `${t.currentParticipants}/${t.maxParticipants}`,
+            reserveCount:   t.reserveQueue?.length ?? 0,
             duration:       t.type === "Fire" ? "≤ 3 hours" : "3+ hours",
             fee:            t.fee,
             feeType:        t.feeType,
@@ -364,6 +406,25 @@ export default function Tournaments() {
         return;
       }
       if (data.walletBalance !== undefined) setBalance(data.walletBalance);
+
+      if (data.inReserve) {
+        // Added to reserve queue
+        toast({
+          title:       "Added to reserve queue",
+          description: data.message,
+          status:      "info",
+          duration:    7000,
+          isClosable:  true,
+        });
+        setAllTournaments((prev) => prev.map((t) =>
+          t.id === tournamentId ? { ...t, reserveCount: t.reserveCount + 1 } : t
+        ));
+        setDisplayedTournaments((prev) => prev.map((t) =>
+          t.id === tournamentId ? { ...t, reserveCount: t.reserveCount + 1 } : t
+        ));
+        return;
+      }
+
       setActiveTournament(tournamentId);
       const joined = allTournaments.find((t) => t.id === tournamentId);
       toast({
@@ -522,11 +583,13 @@ export default function Tournaments() {
     if (!user) return;
     setSubmittingCreate(true);
     try {
-      const title = `${wizardForm.game}: ${wizardForm.format} ${wizardForm.type} Cup`;
+      const autoTitle = `${wizardForm.game}: ${wizardForm.format}${wizardForm.matchFormat !== "Single" ? ` ${wizardForm.matchFormat}` : ""} ${wizardForm.type} Cup`;
+      const title = wizardForm.title.trim() || autoTitle;
       const res   = await fetch("/api/tournaments", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, game: wizardForm.game, type: wizardForm.type, format: wizardForm.format,
+          title, game: wizardForm.game, type: wizardForm.type,
+          format: `${wizardForm.format}${wizardForm.matchFormat !== "Single" ? ` · ${wizardForm.matchFormat}` : ""}`,
           maxParticipants: wizardForm.maxParticipants, scheduledAt: wizardForm.schedule,
           fee: wizardForm.fee, feeType: wizardForm.feeType, region: wizardForm.region,
           eloMin: wizardForm.eloMin !== "" ? Number(wizardForm.eloMin) : undefined,
@@ -544,6 +607,7 @@ export default function Tournaments() {
         status:       "Scheduled",
         startTime:    new Date(wizardForm.schedule).toLocaleString('en-GB'),
         participants: `0/${wizardForm.maxParticipants}`,
+        reserveCount: 0,
         duration:     wizardForm.type === "Fire" ? "≤ 3 hours" : "3+ hours",
         fee:          wizardForm.fee,
         feeType:      wizardForm.feeType,
@@ -599,7 +663,10 @@ export default function Tournaments() {
             <Heading size="md">{tournament.title}</Heading>
             <Text fontSize="sm"><strong>Game:</strong> {tournament.game}</Text>
             <Text fontSize="sm"><strong>Start:</strong> {tournament.startTime}</Text>
-            <Text fontSize="sm"><strong>Players:</strong> {tournament.participants}</Text>
+            <Box>
+              <Text fontSize="sm" fontWeight="bold" mb={1}>Players:</Text>
+              <SlotDisplay participants={tournament.participants} reserveCount={tournament.reserveCount} />
+            </Box>
             <Text fontSize="sm"><strong>Duration:</strong> {tournament.duration}</Text>
             <Text fontSize="sm"><strong>Fee:</strong> {tournament.fee} {tournament.feeType === "per_team" ? "(per team)" : "(per person)"}</Text>
             {tournament.region && <Text fontSize="sm"><strong>Region:</strong> {tournament.region}</Text>}
@@ -701,7 +768,7 @@ export default function Tournaments() {
               <FormLabel fontSize="xs">Format</FormLabel>
               <Select size="sm" value={qFormat} onChange={(e) => setQFormat(e.target.value)}>
                 <option value="">Any Format</option>
-                {PLAYER_COUNTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PLAYER_COUNTS.map((p) => <option key={p} value={p}>{p === "FFA" ? "FFA — Free for All" : p}</option>)}
               </Select>
             </FormControl>
           </SimpleGrid>
@@ -807,7 +874,7 @@ export default function Tournaments() {
       </Modal>
 
       {/* ── CREATION WIZARD ── */}
-      <Modal isOpen={wizardModal.isOpen} onClose={wizardModal.onClose} isCentered size="2xl">
+      <Modal isOpen={wizardModal.isOpen} onClose={wizardModal.onClose} isCentered size="2xl" closeOnOverlayClick={false}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Create Tournament — Step {wizardStep} of {TOTAL_STEPS}</ModalHeader>
@@ -839,6 +906,15 @@ export default function Tournaments() {
             {wizardStep === 2 && (
               <VStack spacing={4} align="stretch">
                 <Heading size="sm">Tournament Settings</Heading>
+                <FormControl>
+                  <FormLabel>Custom Title (optional)</FormLabel>
+                  <Input
+                    placeholder={`e.g. Sunday Blitz — ${wizardForm.game || "Game"} ${wizardForm.type || "Fire"} Cup`}
+                    value={wizardForm.title}
+                    onChange={(e) => setWizardForm({ ...wizardForm, title: e.target.value })}
+                  />
+                  <FormHelperText>Leave blank to use the auto-generated title.</FormHelperText>
+                </FormControl>
                 <FormControl isRequired>
                   <FormLabel>Type</FormLabel>
                   <HStack spacing={3}>
@@ -850,9 +926,15 @@ export default function Tournaments() {
                   </HStack>
                 </FormControl>
                 <FormControl isRequired>
-                  <FormLabel>Format</FormLabel>
+                  <FormLabel>Player Format</FormLabel>
                   <Select value={wizardForm.format} onChange={(e) => setWizardForm({ ...wizardForm, format: e.target.value })}>
-                    {PLAYER_COUNTS.map((p) => <option key={p} value={p}>{p}</option>)}
+                    {PLAYER_COUNTS.map((p) => <option key={p} value={p}>{p === "FFA" ? "FFA — Free for All (high risk, high reward)" : p}</option>)}
+                  </Select>
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>Match Format</FormLabel>
+                  <Select value={wizardForm.matchFormat} onChange={(e) => setWizardForm({ ...wizardForm, matchFormat: e.target.value })}>
+                    {MATCH_FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
                   </Select>
                 </FormControl>
                 <FormControl>
@@ -918,9 +1000,10 @@ export default function Tournaments() {
                 <Heading size="sm">Review & Confirm</Heading>
                 <Box p={4} borderWidth="1px" borderRadius="md">
                   <SimpleGrid columns={2} spacing={2} fontSize="sm">
+                    <Text color="gray.500">Title</Text>       <Text fontWeight="bold">{wizardForm.title.trim() || `${wizardForm.game}: ${wizardForm.format}${wizardForm.matchFormat !== "Single" ? ` ${wizardForm.matchFormat}` : ""} ${wizardForm.type} Cup`}</Text>
                     <Text color="gray.500">Game</Text>        <Text fontWeight="bold">{wizardForm.game}</Text>
                     <Text color="gray.500">Type</Text>        <Text fontWeight="bold">{wizardForm.type}</Text>
-                    <Text color="gray.500">Format</Text>      <Text fontWeight="bold">{wizardForm.format}</Text>
+                    <Text color="gray.500">Format</Text>      <Text fontWeight="bold">{wizardForm.format} · {wizardForm.matchFormat}</Text>
                     <Text color="gray.500">Max players</Text> <Text fontWeight="bold">{wizardForm.maxParticipants}</Text>
                     <Text color="gray.500">Region</Text>      <Text fontWeight="bold">{wizardForm.region}</Text>
                     <Text color="gray.500">Fee</Text>         <Text fontWeight="bold">{wizardForm.fee} {wizardForm.fee !== "Free" ? `(${wizardForm.feeType === "per_team" ? "per team" : "per person"})` : ""}</Text>

@@ -56,9 +56,15 @@ export const useAuthStore = create<AuthState>()(
       sessionExpiresAt: null,
 
       games: [
-        { id: "scouring", name: "The Scouring" },
-        { id: "warOfDots", name: "War of Dots" },
-        { id: "ageOfEmpires2", name: "Age of Empires 2" },
+        { id: "scouring",          name: "The Scouring" },
+        { id: "warOfDots",         name: "War of Dots" },
+        { id: "ageOfEmpires2",     name: "Age of Empires 2" },
+        { id: "rocketLeague",      name: "Rocket League" },
+        { id: "leagueOfLegends",   name: "League of Legends" },
+        { id: "dota2",             name: "Dota 2" },
+        { id: "totalWarRome2",     name: "Total War: Rome 2" },
+        { id: "cs2",               name: "Counter-Strike 2" },
+        { id: "companyOfHeroes3",  name: "Company of Heroes 3" },
       ],
 
       login: (user, expiresAt) =>

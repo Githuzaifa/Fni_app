@@ -30,7 +30,8 @@ export default function ChatBox({ isGM, lobbyId, username }: Props) {
   ]);
   const [input,   setInput]   = useState("");
   const [sending, setSending] = useState(false);
-  const bottomRef             = useRef<HTMLDivElement>(null);
+  const scrollBoxRef           = useRef<HTMLDivElement>(null);
+  const bottomRef              = useRef<HTMLDivElement>(null);
 
   // Subscribe to Pusher channel for this lobby
   useEffect(() => {
@@ -51,9 +52,14 @@ export default function ChatBox({ isGM, lobbyId, username }: Props) {
     };
   }, [lobbyId]);
 
-  // Auto-scroll to latest message
+  // Only auto-scroll if the user is already near the bottom (within 80px)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollBoxRef.current;
+    if (!el) return;
+    const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (isAtBottom) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   const sendMessage = async () => {
@@ -66,6 +72,8 @@ export default function ChatBox({ isGM, lobbyId, username }: Props) {
         body:    JSON.stringify({ lobbyId, username, text: input.trim() }),
       });
       setInput("");
+      // Always scroll to bottom after sending your own message
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } finally {
       setSending(false);
     }
@@ -83,6 +91,7 @@ export default function ChatBox({ isGM, lobbyId, username }: Props) {
       <Divider borderColor="gray.700" />
 
       <Box
+        ref={scrollBoxRef}
         h="350px"
         overflowY="auto"
         borderWidth="1px"
