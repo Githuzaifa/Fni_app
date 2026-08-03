@@ -238,7 +238,7 @@ export default function Tournaments() {
             type:           t.type,
             game:           t.game,
             status:         t.status === "Pending" ? "Scheduled" : t.status,
-            startTime:      new Date(t.scheduledAt).toLocaleString(),
+            startTime:      new Date(t.scheduledAt).toLocaleString('en-GB'),
             scheduledAtRaw: t.scheduledAt,
             participants:   `${t.currentParticipants}/${t.maxParticipants}`,
             duration:       t.type === "Fire" ? "≤ 3 hours" : "3+ hours",
@@ -542,7 +542,7 @@ export default function Tournaments() {
         type:         wizardForm.type as "Fire" | "Ice",
         game:         wizardForm.game,
         status:       "Scheduled",
-        startTime:    new Date(wizardForm.schedule).toLocaleString(),
+        startTime:    new Date(wizardForm.schedule).toLocaleString('en-GB'),
         participants: `0/${wizardForm.maxParticipants}`,
         duration:     wizardForm.type === "Fire" ? "≤ 3 hours" : "3+ hours",
         fee:          wizardForm.fee,
@@ -605,7 +605,7 @@ export default function Tournaments() {
             {tournament.region && <Text fontSize="sm"><strong>Region:</strong> {tournament.region}</Text>}
             {tournament.lockEnabled && lockTime && (
               <Text fontSize="xs" color={locked ? "red.400" : "gray.500"}>
-                🔒 Lock{locked ? "ed" : "s"} at {lockTime.toLocaleString()}
+                🔒 Lock{locked ? "ed" : "s"} at {lockTime.toLocaleString('en-GB')}
               </Text>
             )}
           </Stack>
@@ -924,7 +924,7 @@ export default function Tournaments() {
                     <Text color="gray.500">Max players</Text> <Text fontWeight="bold">{wizardForm.maxParticipants}</Text>
                     <Text color="gray.500">Region</Text>      <Text fontWeight="bold">{wizardForm.region}</Text>
                     <Text color="gray.500">Fee</Text>         <Text fontWeight="bold">{wizardForm.fee} {wizardForm.fee !== "Free" ? `(${wizardForm.feeType === "per_team" ? "per team" : "per person"})` : ""}</Text>
-                    <Text color="gray.500">Starts</Text>      <Text fontWeight="bold">{new Date(wizardForm.schedule).toLocaleString()}</Text>
+                    <Text color="gray.500">Starts</Text>      <Text fontWeight="bold">{new Date(wizardForm.schedule).toLocaleString('en-GB')}</Text>
                     <Text color="gray.500">ELO range</Text>   <Text fontWeight="bold">{(wizardForm.eloMin !== "" || wizardForm.eloMax !== "") ? `${wizardForm.eloMin ?? 0}–${wizardForm.eloMax ?? "∞"}` : "Any"}</Text>
                   </SimpleGrid>
                 </Box>

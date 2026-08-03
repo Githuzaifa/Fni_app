@@ -219,11 +219,18 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
               />
             </Tooltip>
           </HStack>
-          <ScreenShare isGM={isGM} lobbyId={lobbyId} username={currentUser?.username ?? "Player"} participants={players} game={game} />
+          <ScreenShare
+            isGM={isGM}
+            lobbyId={lobbyId}
+            username={currentUser?.username ?? "Player"}
+            participants={players}
+            game={game}
+            isParticipant={players.some((p) => p.username === currentUser?.username)}
+          />
           <Text mt={3} color="gray.500" fontSize="xs">
             {isGM
               ? "All player screens appear above, grouped by team. Click any to focus."
-              : "Share your screen with the Game Master when requested. Only the GM can view shared screens."}
+              : "Participant screens are visible to everyone in the lobby. When the GM starts a round, you will be prompted to share your screen."}
           </Text>
         </Box>
 

@@ -1,25 +1,27 @@
 "use client";
 import React, { useState } from "react";
 import {
-  Box,
-  Button,
-  Container,
-  Heading,
-  Text,
-  VStack,
-  HStack,
-  Stack,
-  Icon,
-  useToast,
+  Box, Button, Container, Heading, Text, VStack, HStack,
+  Stack, Icon, useToast, Badge, Alert, AlertIcon, AlertDescription,
 } from "@chakra-ui/react";
 import { FaCrown, FaForward, FaTimesCircle } from "react-icons/fa";
 
-export default function PremiumPlan(){
-  const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
+function nextBillingDate(): Date {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+export default function PremiumPlan() {
+  const [isSubscribed, setIsSubscribed]     = useState(false);
+  const [cancelledUntil, setCancelledUntil] = useState<Date | null>(null);
   const toast = useToast();
 
-  const handleSubscribe = (): void => {
+  const isActive = isSubscribed || (cancelledUntil !== null && cancelledUntil > new Date());
+
+  const handleSubscribe = () => {
     setIsSubscribed(true);
+    setCancelledUntil(null);
     toast({
       title: "Subscribed",
       description: "You are now a Premium member!",
@@ -29,13 +31,15 @@ export default function PremiumPlan(){
     });
   };
 
-  const handleCancel = (): void => {
+  const handleCancel = () => {
+    const until = nextBillingDate();
     setIsSubscribed(false);
+    setCancelledUntil(until);
     toast({
       title: "Subscription Cancelled",
-      description: "You have cancelled your Premium plan.",
+      description: `Your Premium perks remain active until ${until.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.`,
       status: "info",
-      duration: 3000,
+      duration: 5000,
       isClosable: true,
     });
   };
@@ -58,31 +62,59 @@ export default function PremiumPlan(){
               <Text fontSize="md">Skip queue in all tournaments</Text>
             </HStack>
             <HStack spacing={4}>
-              <Icon as={FaCrown} color="purple.400" boxSize={6} />
-              <Text fontSize="md">Priority access and exclusive events</Text>
+              <Icon as={FaCrown} color="yellow.400" boxSize={6} />
+              <Text fontSize="md">(Legend) display name badge in lobbies</Text>
             </HStack>
             <HStack spacing={4}>
               <Icon as={FaTimesCircle} color="red.400" boxSize={6} />
-              <Text fontSize="md">Cancel anytime</Text>
+              <Text fontSize="md">Cancel anytime — perks stay until your next billing date</Text>
             </HStack>
           </VStack>
 
-          <Stack spacing={4} pt={6} direction="column" w="100%">
-            {!isSubscribed ? (
+          {/* Cancellation notice */}
+          {cancelledUntil && cancelledUntil > new Date() && (
+            <Alert status="info" borderRadius="md" w="100%">
+              <AlertIcon />
+              <AlertDescription fontSize="sm">
+                Your subscription was cancelled. Premium perks remain active until{" "}
+                <strong>
+                  {cancelledUntil.toLocaleDateString("en-GB", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </strong>
+                .
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Stack spacing={4} pt={4} direction="column" w="100%">
+            {!isSubscribed && !cancelledUntil ? (
               <Button colorScheme="purple" size="lg" onClick={handleSubscribe}>
-                Subscribe Now - €5/month
+                Subscribe Now — €5/month
               </Button>
+            ) : isSubscribed ? (
+              <>
+                <Button colorScheme="red" size="lg" onClick={handleCancel}>
+                  Cancel Subscription
+                </Button>
+                <Text color="green.500" fontWeight="semibold" textAlign="center">
+                  ✅ You are a Premium Member!
+                </Text>
+              </>
             ) : (
-              <Button colorScheme="red" size="lg" onClick={handleCancel}>
-                Cancel Subscription
+              /* Cancelled but still active */
+              <Button colorScheme="purple" size="lg" onClick={handleSubscribe}>
+                Resubscribe — €5/month
               </Button>
             )}
           </Stack>
 
-          {isSubscribed && (
-            <Text color="green.500" fontWeight="semibold">
-              ✅ You are a Premium Member!
-            </Text>
+          {isActive && (
+            <Badge colorScheme="yellow" fontSize="sm" px={3} py={1} borderRadius="full">
+              <Icon as={FaCrown} mr={1} /> Premium Active
+            </Badge>
           )}
         </VStack>
       </Container>

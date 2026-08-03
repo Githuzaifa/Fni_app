@@ -91,11 +91,11 @@ const Header: React.FC<HeaderProps> = ({ themeMode, toggleTheme }) => {
 
           {hasMounted && isAuthenticated && (
             <>
-              <LinkButton url="/profile"     title="Profile"        themeMode={themeMode} />
-              <LinkButton url="/Tournaments" title="Tournaments"    themeMode={themeMode} />
-              <LinkButton url="/PremiumPlan" title="Premium Plan"   themeMode={themeMode} />
-              <LinkButton url="/payment"     title="Payment Method" themeMode={themeMode} />
-              <LinkButton url="/teams"       title="Party"          themeMode={themeMode} />
+              <LinkButton url="/profile"     title="Profile"      themeMode={themeMode} />
+              <LinkButton url="/Tournaments" title="Tournaments"  themeMode={themeMode} />
+              <LinkButton url="/PremiumPlan" title="Premium Plan" themeMode={themeMode} />
+              <LinkButton url="/donate"      title="Donate ❤️"    themeMode={themeMode} />
+              <LinkButton url="/teams"       title="Party"        themeMode={themeMode} />
               {isMod && (
                 <LinkButton url="/Admin_tools" title="Admin Tools" themeMode={themeMode} />
               )}

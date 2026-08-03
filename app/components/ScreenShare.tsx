@@ -22,11 +22,12 @@ interface RemoteStream {
 }
 
 interface Props {
-  isGM:         boolean;
-  lobbyId:      string;
-  username:     string;
+  isGM:          boolean;
+  lobbyId:       string;
+  username:      string;
   participants?: Participant[];
-  game?:        string;
+  game?:         string;
+  isParticipant?: boolean;
 }
 
 function PlayerInfo({ identity, participants, game }: {
@@ -148,16 +149,25 @@ function RemoteVideo({
   );
 }
 
-export default function ScreenShare({ isGM, lobbyId, username, participants = [], game = "" }: Props) {
+export default function ScreenShare({
+  isGM,
+  lobbyId,
+  username,
+  participants = [],
+  game = "",
+  isParticipant = true,
+}: Props) {
   const roomRef       = useRef<Room | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
 
-  const [connected,     setConnected]    = useState(false);
-  const [isSharing,     setIsSharing]    = useState(false);
-  const [loading,       setLoading]      = useState(true);
-  const [error,         setError]        = useState<string | null>(null);
-  const [remoteStreams, setRemoteStreams] = useState<RemoteStream[]>([]);
-  const [focused,       setFocused]      = useState<string | null>(null);
+  const [connected,       setConnected]      = useState(false);
+  const [isSharing,       setIsSharing]      = useState(false);
+  const [loading,         setLoading]        = useState(true);
+  const [error,           setError]          = useState<string | null>(null);
+  const [remoteStreams,   setRemoteStreams]   = useState<RemoteStream[]>([]);
+  const [focused,         setFocused]        = useState<string | null>(null);
+  const [countdown,       setCountdown]      = useState<number | null>(null);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
 
   const addRemote = useCallback((identity: string, track: MediaStreamTrack) => {
     setRemoteStreams((prev) => [...prev.filter((s) => s.identity !== identity), { identity, track }]);
@@ -180,6 +190,26 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
     setIsSharing(false);
   }, []);
 
+  // Reset showSharePrompt when the user starts sharing
+  useEffect(() => {
+    if (isSharing) setShowSharePrompt(false);
+  }, [isSharing]);
+
+  // Countdown tick
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) {
+      // Countdown finished — show share prompt to participants (non-GM)
+      if (!isGM && isParticipant) {
+        setShowSharePrompt(true);
+      }
+      setCountdown(null);
+      return;
+    }
+    const timer = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(timer);
+  }, [countdown, isGM, isParticipant]);
+
   useEffect(() => {
     const room = new Room();
     roomRef.current = room;
@@ -198,6 +228,18 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
     });
     room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
       if (pub.source === Track.Source.ScreenShare) detachLocal();
+    });
+
+    // Listen for data messages from other participants
+    room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
+      try {
+        const data = JSON.parse(new TextDecoder().decode(payload));
+        if (data?.type === "START_SCREENSHARE") {
+          setCountdown(10);
+        }
+      } catch {
+        // ignore malformed messages
+      }
     });
 
     fetch("/api/livekit/token", {
@@ -227,10 +269,21 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
     if (!roomRef.current) return;
     try { await roomRef.current.localParticipant.setScreenShareEnabled(true); } catch { }
   };
+
   const stopSharing = async () => {
     if (!roomRef.current) return;
     await roomRef.current.localParticipant.setScreenShareEnabled(false);
   };
+
+  const sendStartSignal = () => {
+    if (!roomRef.current) return;
+    roomRef.current.localParticipant.publishData(
+      new TextEncoder().encode(JSON.stringify({ type: "START_SCREENSHARE" }))
+    );
+    // GM also sees the countdown locally
+    setCountdown(10);
+  };
+
   const toggleFocus = (identity: string) =>
     setFocused((prev) => (prev === identity ? null : identity));
 
@@ -257,8 +310,40 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
   return (
     <VStack spacing={3} w="100%" flex="1">
 
-      {/* Remote streams — GM only */}
-      {isGM && (remoteStreams.length === 0 ? (
+      {/* GM-only: Start Screen Share Round button */}
+      {isGM && connected && (
+        <Button
+          colorScheme="purple"
+          size="md"
+          w="100%"
+          onClick={sendStartSignal}
+        >
+          Start Screen Share Round
+        </Button>
+      )}
+
+      {/* Countdown overlay — visible to all when countdown is active */}
+      {countdown !== null && (
+        <Box
+          bg="orange.900"
+          borderRadius="md"
+          p={5}
+          w="100%"
+          textAlign="center"
+          border="2px solid"
+          borderColor="orange.400"
+        >
+          <Text fontSize="3xl" fontWeight="black" color="orange.200">
+            Round starting in {countdown}s
+          </Text>
+          <Text fontSize="sm" color="orange.300" mt={1}>
+            {isParticipant ? "Make sure you are in the game and ready!" : "Get ready to watch!"}
+          </Text>
+        </Box>
+      )}
+
+      {/* Remote streams — visible to ALL users (GM, participants, spectators) */}
+      {remoteStreams.length === 0 ? (
         <Box w="100%" h="220px" bg="gray.700" borderRadius="md"
           display="flex" alignItems="center" justifyContent="center">
           <Text color="gray.400" fontSize="sm" textAlign="center" px={4}>
@@ -267,7 +352,7 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
         </Box>
 
       ) : focusedStream ? (
-        /* ── Focused mode ── */
+        /* Focused mode */
         <VStack spacing={2} w="100%">
           <Box w="100%" minH="340px">
             <RemoteVideo stream={focusedStream} isFocused isThumb={false}
@@ -288,7 +373,7 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
         </VStack>
 
       ) : hasTeams ? (
-        /* ── Team-grouped layout ── */
+        /* Team-grouped layout */
         <Box w="100%" overflowY="auto" maxH="520px">
           <HStack align="start" spacing={3} w="100%">
             {/* Team A column */}
@@ -343,7 +428,7 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
         </Box>
 
       ) : (
-        /* ── Fallback grid (no team data) ── */
+        /* Fallback grid (no team data) */
         <Box w="100%" overflowY="auto" maxH="520px">
           <VStack spacing={3} w="100%">
             {remoteStreams.map((s) => (
@@ -353,7 +438,7 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
             ))}
           </VStack>
         </Box>
-      ))}
+      )}
 
       {/* Local preview */}
       {!isGM && isSharing && (
@@ -366,10 +451,20 @@ export default function ScreenShare({ isGM, lobbyId, username, participants = []
         </Box>
       )}
 
-      {/* Share / Stop */}
+      {/* Share / Stop controls — non-GM only */}
       {!isGM && (
         <HStack>
-          {!isSharing ? (
+          {showSharePrompt && !isSharing ? (
+            /* Prominent pulsing prompt shown after countdown finishes */
+            <Button
+              colorScheme="orange"
+              size="lg"
+              onClick={() => { startSharing(); setShowSharePrompt(false); }}
+              animation="pulse 1s infinite"
+            >
+              Share Your Screen Now!
+            </Button>
+          ) : !isSharing ? (
             <Button colorScheme="green" onClick={startSharing} isDisabled={!connected}>
               {connected ? "Share My Screen" : "Connecting..."}
             </Button>

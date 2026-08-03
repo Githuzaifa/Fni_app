@@ -101,7 +101,7 @@ export default function ClientLayout({
                 transform: "scale(1.08)",
               }}
               _active={{ transform: "scale(0.95)" }}
-              onClick={() => router.push("/wallet")}
+              onClick={() => router.push("/payment")}
             >
               <Text fontSize="28px">💰</Text>
 
