@@ -115,7 +115,7 @@ function DonationCard({ goal }: { goal: DonationGoal }) {
 
 export default function DonatePage() {
   return (
-    <Box py={10} px={4}>
+    <Box py={10} pl="220px" pr={6}>
       <Container maxW="container.lg">
         <VStack spacing={8} align="stretch">
           <VStack spacing={3} textAlign="center">
