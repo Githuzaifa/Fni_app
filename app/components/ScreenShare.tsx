@@ -2,10 +2,10 @@
 import { useRef, useState, useEffect, useCallback } from "react";
 import {
   VStack, Button, Box, Text, HStack, Spinner, Badge,
-  IconButton, Tooltip, Divider, NumberInput, NumberInputField,
+  IconButton, Tooltip, NumberInput, NumberInputField,
   NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper,
 } from "@chakra-ui/react";
-import { FaExpand, FaCompress } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaExpand, FaCompress } from "react-icons/fa";
 import { Room, RoomEvent, Track } from "livekit-client";
 
 interface Participant {
@@ -23,129 +23,66 @@ interface RemoteStream {
 }
 
 interface Props {
-  isGM:          boolean;
-  lobbyId:       string;
-  username:      string;
-  participants?: Participant[];
-  game?:         string;
+  isGM:           boolean;
+  lobbyId:        string;
+  username:       string;
+  participants?:  Participant[];
+  game?:          string;
   isParticipant?: boolean;
 }
 
-function PlayerInfo({ identity, participants, game }: {
-  identity:     string;
-  participants: Participant[];
-  game:         string;
-}) {
-  const p = participants.find((x) => x.username === identity);
-  return (
-    <HStack
-      position="absolute"
-      bottom={0}
-      left={0}
-      right={0}
-      px={2}
-      py={1}
-      bg="blackAlpha.700"
-      spacing={2}
-      flexWrap="wrap"
-      zIndex={1}
-      fontSize="xs"
-    >
-      <Text color="white" fontWeight="bold" isTruncated maxW="100px">{identity}</Text>
-      {p?.team && (
-        <Badge colorScheme={p.team === "A" ? "green" : "orange"} fontSize="xs">
-          Team {p.team}
-        </Badge>
-      )}
-      {p?.elo !== undefined && (
-        <Badge colorScheme="purple" fontSize="xs">ELO {p.elo}</Badge>
-      )}
-      {p?.gamerTag && (
-        <Badge colorScheme="blue" variant="outline" fontSize="xs">{p.gamerTag}</Badge>
-      )}
-      {game && (
-        <Text color="gray.400" fontSize="xs" isTruncated>{game}</Text>
-      )}
-    </HStack>
-  );
-}
-
-function RemoteVideo({
+function StreamVideo({
   stream,
-  isFocused,
-  isThumb,
   participants,
   game,
-  onClick,
+  style,
 }: {
   stream:       RemoteStream;
-  isFocused:    boolean;
-  isThumb:      boolean;
   participants: Participant[];
   game:         string;
-  onClick:      () => void;
+  style?:       React.CSSProperties;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const p   = participants.find((x) => x.username === stream.identity);
+
   useEffect(() => {
     if (ref.current) ref.current.srcObject = new MediaStream([stream.track]);
   }, [stream.track]);
 
   return (
-    <Box
-      position="relative"
-      bg="gray.700"
-      borderRadius="md"
-      overflow="hidden"
-      minH={isThumb ? "80px" : "200px"}
-      cursor="pointer"
-      onClick={onClick}
-      outline={isFocused ? "2px solid" : "none"}
-      outlineColor="teal.400"
-      _hover={{ opacity: 0.9 }}
-    >
-      {/* Expand / compress icon */}
-      <Tooltip label={isFocused ? "Exit focus" : "Focus screen"} placement="left">
-        <IconButton
-          position="absolute"
-          top={2}
-          right={2}
-          size="xs"
-          variant="solid"
-          colorScheme="blackAlpha"
-          icon={isFocused ? <FaCompress /> : <FaExpand />}
-          aria-label={isFocused ? "Exit focus" : "Focus screen"}
-          zIndex={2}
-          onClick={(e) => { e.stopPropagation(); onClick(); }}
-        />
-      </Tooltip>
-
+    <Box position="relative" w="100%" h="100%" bg="gray.900" overflow="hidden">
       <video
         ref={ref}
         autoPlay
         playsInline
-        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+        style={{ width: "100%", height: "100%", objectFit: "contain", display: "block", ...style }}
       />
-
-      {/* Player info bar at the bottom */}
-      {!isThumb && (
-        <PlayerInfo identity={stream.identity} participants={participants} game={game} />
-      )}
-      {isThumb && (
-        <Text
-          position="absolute"
-          bottom={1}
-          left={2}
-          color="white"
-          fontSize="2xs"
-          fontWeight="bold"
-          zIndex={1}
-          textShadow="0 1px 3px black"
-          isTruncated
-          maxW="110px"
-        >
+      {/* Player info bar */}
+      <HStack
+        position="absolute"
+        bottom={0}
+        left={0}
+        right={0}
+        px={3}
+        py={2}
+        bg="blackAlpha.600"
+        spacing={2}
+        flexWrap="wrap"
+      >
+        <Text color="white" fontWeight="bold" fontSize="sm" isTruncated maxW="150px">
           {stream.identity}
         </Text>
-      )}
+        {p?.team && (
+          <Badge colorScheme={p.team === "A" ? "green" : "orange"} fontSize="xs">Team {p.team}</Badge>
+        )}
+        {p?.elo !== undefined && (
+          <Badge colorScheme="purple" fontSize="xs">ELO {p.elo}</Badge>
+        )}
+        {p?.gamerTag && (
+          <Badge colorScheme="blue" variant="outline" fontSize="xs">{p.gamerTag}</Badge>
+        )}
+        {game && <Text color="gray.300" fontSize="xs">{game}</Text>}
+      </HStack>
     </Box>
   );
 }
@@ -160,24 +97,30 @@ export default function ScreenShare({
 }: Props) {
   const roomRef       = useRef<Room | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const containerRef  = useRef<HTMLDivElement>(null);
 
-  const [connected,       setConnected]      = useState(false);
-  const [isSharing,       setIsSharing]      = useState(false);
-  const [loading,         setLoading]        = useState(true);
-  const [error,           setError]          = useState<string | null>(null);
-  const [remoteStreams,   setRemoteStreams]   = useState<RemoteStream[]>([]);
-  const [focused,         setFocused]        = useState<string | null>(null);
-  const [countdown,        setCountdown]       = useState<number | null>(null);
-  const [showSharePrompt,  setShowSharePrompt]  = useState(false);
-  const [roundSeconds,     setRoundSeconds]     = useState(30);
+  const [connected,      setConnected]     = useState(false);
+  const [isSharing,      setIsSharing]     = useState(false);
+  const [loading,        setLoading]       = useState(true);
+  const [error,          setError]         = useState<string | null>(null);
+  const [remoteStreams,  setRemoteStreams]  = useState<RemoteStream[]>([]);
+  const [countdown,      setCountdown]     = useState<number | null>(null);
+  const [showSharePrompt,setShowSharePrompt] = useState(false);
+  const [roundSeconds,   setRoundSeconds]  = useState(30);
+  const [isFullscreen,   setIsFullscreen]  = useState(false);
+
+  // Carousel state
+  const [viewingTeam, setViewingTeam] = useState<"A" | "B" | null>(null);
+  const [streamIdx,   setStreamIdx]   = useState(0);
 
   const addRemote = useCallback((identity: string, track: MediaStreamTrack) => {
+    // Never show the user their own stream back to them
+    if (identity === username) return;
     setRemoteStreams((prev) => [...prev.filter((s) => s.identity !== identity), { identity, track }]);
-  }, []);
+  }, [username]);
 
   const removeRemote = useCallback((identity: string) => {
     setRemoteStreams((prev) => prev.filter((s) => s.identity !== identity));
-    setFocused((prev) => (prev === identity ? null : prev));
   }, []);
 
   const attachLocal = useCallback((track: MediaStreamTrack) => {
@@ -192,7 +135,7 @@ export default function ScreenShare({
     setIsSharing(false);
   }, []);
 
-  // Reset showSharePrompt when the user starts sharing
+  // Reset share prompt when sharing starts
   useEffect(() => {
     if (isSharing) setShowSharePrompt(false);
   }, [isSharing]);
@@ -201,16 +144,32 @@ export default function ScreenShare({
   useEffect(() => {
     if (countdown === null) return;
     if (countdown === 0) {
-      // Countdown finished — show share prompt to participants (non-GM)
-      if (!isGM && isParticipant) {
-        setShowSharePrompt(true);
-      }
+      if (!isGM && isParticipant) setShowSharePrompt(true);
       setCountdown(null);
       return;
     }
     const timer = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
     return () => clearTimeout(timer);
   }, [countdown, isGM, isParticipant]);
+
+  // Auto-select viewing team when streams arrive
+  useEffect(() => {
+    const teamA = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "A");
+    const teamB = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "B");
+    if (viewingTeam === null && (teamA.length > 0 || teamB.length > 0)) {
+      setViewingTeam("A");
+    }
+  }, [remoteStreams, participants, viewingTeam]);
+
+  // Reset index when team or streams change
+  useEffect(() => { setStreamIdx(0); }, [viewingTeam]);
+
+  // Fullscreen change listener
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handler);
+    return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
 
   useEffect(() => {
     const room = new Room();
@@ -231,17 +190,11 @@ export default function ScreenShare({
     room.on(RoomEvent.LocalTrackUnpublished, (pub) => {
       if (pub.source === Track.Source.ScreenShare) detachLocal();
     });
-
-    // Listen for data messages from other participants
     room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
       try {
         const data = JSON.parse(new TextDecoder().decode(payload));
-        if (data?.type === "START_SCREENSHARE") {
-          setCountdown(data.countdown ?? 10);
-        }
-      } catch {
-        // ignore malformed messages
-      }
+        if (data?.type === "START_SCREENSHARE") setCountdown(data.countdown ?? 10);
+      } catch { }
     });
 
     fetch("/api/livekit/token", {
@@ -285,17 +238,29 @@ export default function ScreenShare({
     setCountdown(roundSeconds);
   };
 
-  const toggleFocus = (identity: string) =>
-    setFocused((prev) => (prev === identity ? null : identity));
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  };
 
-  // Split streams by team using the participants list; unassigned go to a separate bucket
-  const teamA   = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "A");
-  const teamB   = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "B");
-  const noTeam  = remoteStreams.filter((s) => !participants.find((p) => p.username === s.identity));
+  // Derived streams
+  const teamA = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "A");
+  const teamB = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "B");
   const hasTeams = teamA.length > 0 || teamB.length > 0;
 
-  const focusedStream = focused ? remoteStreams.find((s) => s.identity === focused) ?? null : null;
-  const thumbStreams   = focused ? remoteStreams.filter((s) => s.identity !== focused) : [];
+  const visibleStreams = hasTeams
+    ? (viewingTeam === "B" ? teamB : teamA)
+    : remoteStreams;
+
+  const currentStream = visibleStreams[streamIdx] ?? null;
+  const canPrev       = streamIdx > 0;
+  const canNext       = streamIdx < visibleStreams.length - 1;
+  const otherTeam     = viewingTeam === "A" ? "B" : "A";
+  const otherTeamStreams = viewingTeam === "A" ? teamB : teamA;
 
   if (loading) return (
     <Box h="200px" display="flex" alignItems="center" justifyContent="center">
@@ -311,25 +276,16 @@ export default function ScreenShare({
   return (
     <VStack spacing={3} w="100%" flex="1">
 
-      {/* GM-only: configurable round start */}
+      {/* TO-only: round start controls */}
       {isGM && connected && (
         <HStack w="100%" spacing={2}>
-          <Button
-            colorScheme="purple"
-            size="md"
-            flex="1"
-            onClick={sendStartSignal}
-          >
+          <Button colorScheme="purple" size="md" flex="1" onClick={sendStartSignal}>
             🎮 Start Round ({roundSeconds}s countdown)
           </Button>
           <NumberInput
-            value={roundSeconds}
-            min={5}
-            max={300}
-            step={5}
+            value={roundSeconds} min={5} max={300} step={5}
             onChange={(_, val) => setRoundSeconds(isNaN(val) ? 30 : val)}
-            w="100px"
-            size="md"
+            w="100px" size="md"
           >
             <NumberInputField bg="gray.700" color="white" borderColor="gray.600" />
             <NumberInputStepper>
@@ -340,17 +296,10 @@ export default function ScreenShare({
         </HStack>
       )}
 
-      {/* Countdown overlay — visible to all when countdown is active */}
+      {/* Countdown overlay */}
       {countdown !== null && (
-        <Box
-          bg="orange.900"
-          borderRadius="md"
-          p={5}
-          w="100%"
-          textAlign="center"
-          border="2px solid"
-          borderColor="orange.400"
-        >
+        <Box bg="orange.900" borderRadius="md" p={5} w="100%" textAlign="center"
+          border="2px solid" borderColor="orange.400">
           <Text fontSize="3xl" fontWeight="black" color="orange.200">
             Round starting in {countdown}s
           </Text>
@@ -360,103 +309,116 @@ export default function ScreenShare({
         </Box>
       )}
 
-      {/* Remote streams — visible to ALL users (GM, participants, spectators) */}
-      {remoteStreams.length === 0 ? (
-        <Box w="100%" h="220px" bg="gray.700" borderRadius="md"
-          display="flex" alignItems="center" justifyContent="center">
-          <Text color="gray.400" fontSize="sm" textAlign="center" px={4}>
-            Waiting for players to share their screen...
-          </Text>
-        </Box>
-
-      ) : focusedStream ? (
-        /* Focused mode */
-        <VStack spacing={2} w="100%">
-          <Box w="100%" minH="340px">
-            <RemoteVideo stream={focusedStream} isFocused isThumb={false}
-              participants={participants} game={game}
-              onClick={() => toggleFocus(focusedStream.identity)} />
+      {/* Stream viewer — carousel with fullscreen */}
+      <Box
+        ref={containerRef}
+        position="relative"
+        w="100%"
+        bg="black"
+        borderRadius={isFullscreen ? "none" : "lg"}
+        overflow="hidden"
+        minH={isFullscreen ? "100vh" : "380px"}
+        flex="1"
+      >
+        {remoteStreams.length === 0 ? (
+          <Box w="100%" h="100%" minH="380px" display="flex" alignItems="center" justifyContent="center">
+            <Text color="gray.500" fontSize="sm" textAlign="center" px={4}>
+              Waiting for players to share their screens...
+            </Text>
           </Box>
-          {thumbStreams.length > 0 && (
-            <HStack spacing={2} w="100%" overflowX="auto" pb={1}>
-              {thumbStreams.map((s) => (
-                <Box key={s.identity} minW="130px" w="130px" flexShrink={0}>
-                  <RemoteVideo stream={s} isFocused={false} isThumb
-                    participants={participants} game={game}
-                    onClick={() => toggleFocus(s.identity)} />
-                </Box>
-              ))}
-            </HStack>
-          )}
-        </VStack>
+        ) : currentStream ? (
+          <StreamVideo
+            stream={currentStream}
+            participants={participants}
+            game={game}
+            style={{ minHeight: isFullscreen ? "100vh" : "380px" }}
+          />
+        ) : (
+          <Box w="100%" h="380px" display="flex" alignItems="center" justifyContent="center">
+            <Text color="gray.500" fontSize="sm">No stream available for this team yet.</Text>
+          </Box>
+        )}
 
-      ) : hasTeams ? (
-        /* Team-grouped layout */
-        <Box w="100%" overflowY="auto" maxH="520px">
-          <HStack align="start" spacing={3} w="100%">
-            {/* Team A column */}
-            <VStack flex={1} spacing={3} align="stretch">
-              <HStack>
-                <Badge colorScheme="green" px={2} py={1} borderRadius="md">Team A</Badge>
-                <Divider borderColor="green.600" />
-              </HStack>
-              {teamA.length === 0 ? (
-                <Box h="80px" bg="gray.700" borderRadius="md" display="flex" alignItems="center" justifyContent="center">
-                  <Text color="gray.500" fontSize="xs">No screens yet</Text>
-                </Box>
-              ) : (
-                teamA.map((s) => (
-                  <RemoteVideo key={s.identity} stream={s} isFocused={false} isThumb={false}
-                    participants={participants} game={game}
-                    onClick={() => toggleFocus(s.identity)} />
-                ))
-              )}
-            </VStack>
+        {/* Fullscreen toggle — top right */}
+        {remoteStreams.length > 0 && (
+          <Tooltip label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} placement="left">
+            <IconButton
+              position="absolute"
+              top={2}
+              right={2}
+              size="sm"
+              colorScheme="blackAlpha"
+              icon={isFullscreen ? <FaCompress /> : <FaExpand />}
+              aria-label="Toggle fullscreen"
+              onClick={toggleFullscreen}
+              zIndex={10}
+            />
+          </Tooltip>
+        )}
 
-            {/* Team B column */}
-            <VStack flex={1} spacing={3} align="stretch">
-              <HStack>
-                <Badge colorScheme="orange" px={2} py={1} borderRadius="md">Team B</Badge>
-                <Divider borderColor="orange.600" />
-              </HStack>
-              {teamB.length === 0 ? (
-                <Box h="80px" bg="gray.700" borderRadius="md" display="flex" alignItems="center" justifyContent="center">
-                  <Text color="gray.500" fontSize="xs">No screens yet</Text>
-                </Box>
-              ) : (
-                teamB.map((s) => (
-                  <RemoteVideo key={s.identity} stream={s} isFocused={false} isThumb={false}
-                    participants={participants} game={game}
-                    onClick={() => toggleFocus(s.identity)} />
-                ))
-              )}
-            </VStack>
+        {/* Stream counter — top left */}
+        {visibleStreams.length > 1 && (
+          <Badge
+            position="absolute"
+            top={2}
+            left={2}
+            colorScheme={viewingTeam === "B" ? "orange" : "green"}
+            fontSize="xs"
+            zIndex={10}
+          >
+            {hasTeams ? `Team ${viewingTeam} ` : ""}{streamIdx + 1} / {visibleStreams.length}
+          </Badge>
+        )}
+
+        {/* Bottom navigation overlay */}
+        {remoteStreams.length > 0 && (
+          <HStack
+            position="absolute"
+            bottom={0}
+            left={0}
+            right={0}
+            px={4}
+            py={3}
+            bg="blackAlpha.500"
+            justify="space-between"
+            zIndex={10}
+          >
+            {/* Previous screen */}
+            <IconButton
+              icon={<FaChevronLeft />}
+              aria-label="Previous screen"
+              size="md"
+              colorScheme="whiteAlpha"
+              isDisabled={!canPrev}
+              onClick={() => setStreamIdx((i) => Math.max(0, i - 1))}
+            />
+
+            {/* Team switch button (middle) */}
+            {hasTeams && otherTeamStreams.length > 0 ? (
+              <Button
+                size="sm"
+                colorScheme={otherTeam === "B" ? "orange" : "green"}
+                variant="solid"
+                onClick={() => { setViewingTeam(otherTeam); setStreamIdx(0); }}
+              >
+                Switch to Team {otherTeam}
+              </Button>
+            ) : (
+              <Box />
+            )}
+
+            {/* Next screen */}
+            <IconButton
+              icon={<FaChevronRight />}
+              aria-label="Next screen"
+              size="md"
+              colorScheme="whiteAlpha"
+              isDisabled={!canNext}
+              onClick={() => setStreamIdx((i) => Math.min(visibleStreams.length - 1, i + 1))}
+            />
           </HStack>
-
-          {/* Unassigned (joined before team system, or 1v1) */}
-          {noTeam.length > 0 && (
-            <VStack spacing={3} mt={3} align="stretch">
-              {noTeam.map((s) => (
-                <RemoteVideo key={s.identity} stream={s} isFocused={false} isThumb={false}
-                  participants={participants} game={game}
-                  onClick={() => toggleFocus(s.identity)} />
-              ))}
-            </VStack>
-          )}
-        </Box>
-
-      ) : (
-        /* Fallback grid (no team data) */
-        <Box w="100%" overflowY="auto" maxH="520px">
-          <VStack spacing={3} w="100%">
-            {remoteStreams.map((s) => (
-              <RemoteVideo key={s.identity} stream={s} isFocused={false} isThumb={false}
-                participants={participants} game={game}
-                onClick={() => toggleFocus(s.identity)} />
-            ))}
-          </VStack>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {/* Local preview */}
       {!isGM && isSharing && (
@@ -469,11 +431,10 @@ export default function ScreenShare({
         </Box>
       )}
 
-      {/* Share / Stop controls — non-GM only */}
+      {/* Share / Stop controls */}
       {!isGM && (
         <HStack>
           {showSharePrompt && !isSharing ? (
-            /* Prominent pulsing prompt shown after countdown finishes */
             <Button
               colorScheme="orange"
               size="lg"

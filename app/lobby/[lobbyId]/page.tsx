@@ -139,7 +139,7 @@ export default function LobbyPage() {
           {isGM ? (
             <Box textAlign="center">
               <Text color="gray.400" mb={4} fontSize="sm">
-                You are the Game Master. Open the lobby when you are ready to start.
+                You are the Tournament Organizer. Open the lobby when you are ready to start.
               </Text>
               <Button
                 colorScheme="teal"
@@ -156,7 +156,7 @@ export default function LobbyPage() {
               <Box>
                 <Text fontWeight="bold">Lobby not open yet</Text>
                 <Text fontSize="sm">
-                  The Game Master will open the lobby before the match starts.
+                  The Tournament Organizer will open the lobby before the match starts.
                   Keep this page open — it will update automatically.
                 </Text>
               </Box>

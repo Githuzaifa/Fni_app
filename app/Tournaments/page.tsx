@@ -44,6 +44,7 @@ import {
   Badge,
   RadioGroup,
   Radio,
+  Textarea,
 } from "@chakra-ui/react";
 
 // ──────────────────────────────────────────────
@@ -53,6 +54,7 @@ const GAMES = [
   "The Scouring", "Age of Empires 2", "War of Dots",
   "Rocket League", "League of Legends", "Dota 2",
   "Total War: Rome 2", "Counter-Strike 2", "Company of Heroes 3",
+  "Chess (Lichess)", "Shogi (Lishogi)", "Go", "Apex Legends",
 ];
 const GAME_IMAGE: Record<string, string> = {
   "The Scouring":        "/scouring.jpg",
@@ -64,6 +66,10 @@ const GAME_IMAGE: Record<string, string> = {
   "Total War: Rome 2":   "/total_war_rome2.jpg",
   "Counter-Strike 2":    "/counter_strike_2.jpg",
   "Company of Heroes 3": "/company_of_heroes_3.jpg",
+  "Chess (Lichess)":     "/chess.jpg",
+  "Shogi (Lishogi)":     "/shogi.jpg",
+  "Go":                  "/go.jpg",
+  "Apex Legends":        "/apex_legends.jpg",
 };
 const FEE_TYPES     = ["Free", "€5", "€10"];
 const PLAYER_COUNTS = ["1v1", "2v2", "3v3", "5v5", "FFA"];
@@ -117,6 +123,7 @@ function buildPrizes(fee: string, type: "Fire" | "Ice" | "", maxParticipants: nu
 interface Tournament {
   id: string;
   title: string;
+  description?: string;
   type: "Fire" | "Ice";
   game: string;
   status: "Active" | "Pending" | "Scheduled" | "Cancelled" | "Completed";
@@ -138,6 +145,7 @@ interface Tournament {
 
 interface WizardForm {
   title: string;
+  description: string;
   game: string;
   type: "Fire" | "Ice" | "";
   format: string;
@@ -152,10 +160,19 @@ interface WizardForm {
 }
 
 const WIZARD_INITIAL: WizardForm = {
-  title: "", game: "", type: "", format: "1v1", matchFormat: "Single",
+  title: "", description: "", game: "", type: "", format: "1v1", matchFormat: "Single",
   maxParticipants: 16, fee: "Free", feeType: "per_person", region: "Europe",
   schedule: "", eloMin: 400, eloMax: "",
 };
+
+const BANNED_WORDS = [
+  "fuck","shit","bitch","cunt","asshole","nigger","nigga","faggot","retard",
+  "whore","slut","bastard","dick","pussy","cock","twat","piss","damn","ass",
+];
+function containsProfanity(text: string): boolean {
+  const lower = text.toLowerCase().replace(/[^a-z0-9\s]/g, "");
+  return BANNED_WORDS.some((w) => lower.split(/\s+/).includes(w));
+}
 
 
 // ──────────────────────────────────────────────
@@ -293,6 +310,7 @@ export default function Tournaments() {
             boostedUntil:   t.boostedUntil,
             createdBy:      t.createdBy,
             lockEnabled:    t.lockEnabled ?? true,
+            description:    t.description ?? "",
           }));
           setAllTournaments(mapped);
           setDisplayedTournaments(mapped);
@@ -553,11 +571,6 @@ export default function Tournaments() {
   // ──────────────────────────────────────────────
   const openWizard = () => {
     if (!user) { toast({ title: "Please login to create tournaments", status: "error", duration: 3000, isClosable: true }); return; }
-    const role = user.role ?? "player";
-    if (!["gm", "moderator", "admin"].includes(role)) {
-      toast({ title: "Game Masters only", description: "Only GMs can create tournaments. Upgrade to GM first.", status: "error", duration: 4000, isClosable: true });
-      return;
-    }
     setWizardForm(WIZARD_INITIAL);
     setPrizes([]);
     setWizardStep(1);
@@ -567,6 +580,10 @@ export default function Tournaments() {
   const wizardNext = () => {
     if (wizardStep === 1 && !wizardForm.game) { toast({ title: "Select a game to continue", status: "warning", duration: 2000, isClosable: true }); return; }
     if (wizardStep === 2 && (!wizardForm.type || !wizardForm.format)) { toast({ title: "Select tournament type and format", status: "warning", duration: 2000, isClosable: true }); return; }
+    if (wizardStep === 2 && wizardForm.title && containsProfanity(wizardForm.title)) {
+      toast({ title: "Offensive language in title", description: "Please remove any offensive words from the tournament title.", status: "error", duration: 4000, isClosable: true });
+      return;
+    }
     if (wizardStep === 3 && !wizardForm.schedule) { toast({ title: "Select a start date", status: "warning", duration: 2000, isClosable: true }); return; }
     if (wizardStep === 3) setPrizes(buildPrizes(wizardForm.fee, wizardForm.type, wizardForm.maxParticipants, wizardForm.feeType, wizardForm.format));
     setWizardStep((s) => Math.min(s + 1, TOTAL_STEPS));
@@ -588,7 +605,8 @@ export default function Tournaments() {
       const res   = await fetch("/api/tournaments", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title, game: wizardForm.game, type: wizardForm.type,
+          title, description: wizardForm.description,
+          game: wizardForm.game, type: wizardForm.type,
           format: `${wizardForm.format}${wizardForm.matchFormat !== "Single" ? ` · ${wizardForm.matchFormat}` : ""}`,
           maxParticipants: wizardForm.maxParticipants, scheduledAt: wizardForm.schedule,
           fee: wizardForm.fee, feeType: wizardForm.feeType, region: wizardForm.region,
@@ -643,7 +661,6 @@ export default function Tournaments() {
   const isCreator = (t: Tournament) =>
     !!user &&
     !!t.createdBy &&
-    ["gm", "moderator", "admin"].includes(user.role ?? "") &&
     (t.createdBy === user._id || t.createdBy === user.username);
 
   function TournamentCard({ tournament }: { tournament: Tournament }) {
@@ -661,6 +678,13 @@ export default function Tournaments() {
         <SimpleGrid columns={[1, null, 2]} spacing={4}>
           <Stack spacing={2}>
             <Heading size="md">{tournament.title}</Heading>
+            {tournament.description && (
+              <Box bg="blackAlpha.200" borderRadius="md" px={3} py={2}>
+                <Text fontSize="xs" color="gray.400" whiteSpace="pre-wrap" noOfLines={4}>
+                  {tournament.description}
+                </Text>
+              </Box>
+            )}
             <Text fontSize="sm"><strong>Game:</strong> {tournament.game}</Text>
             <Text fontSize="sm"><strong>Start:</strong> {tournament.startTime}</Text>
             <Box>
@@ -741,7 +765,7 @@ export default function Tournaments() {
         <HStack spacing={3} justify="center" mb={4} flexWrap="wrap">
           <Button colorScheme="brand" onClick={resetAll}>All Tournaments</Button>
           <Button colorScheme="brand" variant="outline" onClick={() => setShowFilter((v) => !v)}>Filter</Button>
-          {user && ["gm", "moderator", "admin"].includes(user.role ?? "") && (
+          {user && (
             <Button colorScheme="green" onClick={openWizard}>Create Tournament</Button>
           )}
         </HStack>
@@ -894,7 +918,7 @@ export default function Tournaments() {
                     <Text as="span" color="blue.500" textDecoration="underline" cursor="pointer" onClick={() => window.open(FNI_RULES_URL, "_blank")}>
                       FnI Tournament Rules
                     </Text>
-                    . GMs are responsible for fair play and correct prize distribution.
+                    . Tournament Organizers are responsible for fair play and correct prize distribution.
                   </AlertDescription>
                 </Alert>
                 <GameSelector selectedGame={wizardForm.game} onSelect={(g) => setWizardForm({ ...wizardForm, game: g })} />
@@ -907,13 +931,28 @@ export default function Tournaments() {
               <VStack spacing={4} align="stretch">
                 <Heading size="sm">Tournament Settings</Heading>
                 <FormControl>
-                  <FormLabel>Custom Title (optional)</FormLabel>
+                  <FormLabel>Tournament Title</FormLabel>
                   <Input
                     placeholder={`e.g. Sunday Blitz — ${wizardForm.game || "Game"} ${wizardForm.type || "Fire"} Cup`}
                     value={wizardForm.title}
                     onChange={(e) => setWizardForm({ ...wizardForm, title: e.target.value })}
+                    isInvalid={!!wizardForm.title && containsProfanity(wizardForm.title)}
                   />
-                  <FormHelperText>Leave blank to use the auto-generated title.</FormHelperText>
+                  {wizardForm.title && containsProfanity(wizardForm.title) && (
+                    <Text color="red.400" fontSize="xs" mt={1}>Title contains offensive language — please revise.</Text>
+                  )}
+                  <FormHelperText>Leave blank to use an auto-generated title.</FormHelperText>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Description</FormLabel>
+                  <Textarea
+                    placeholder={"Rules: No cheating, fair play required.\n\nSponsored by: YourSponsor.com"}
+                    value={wizardForm.description}
+                    onChange={(e) => setWizardForm({ ...wizardForm, description: e.target.value })}
+                    rows={5}
+                    resize="vertical"
+                  />
+                  <FormHelperText>Add tournament rules, sponsor info, and any special instructions for players.</FormHelperText>
                 </FormControl>
                 <FormControl isRequired>
                   <FormLabel>Type</FormLabel>
@@ -1010,6 +1049,12 @@ export default function Tournaments() {
                     <Text color="gray.500">Starts</Text>      <Text fontWeight="bold">{new Date(wizardForm.schedule).toLocaleString('en-GB')}</Text>
                     <Text color="gray.500">ELO range</Text>   <Text fontWeight="bold">{(wizardForm.eloMin !== "" || wizardForm.eloMax !== "") ? `${wizardForm.eloMin ?? 0}–${wizardForm.eloMax ?? "∞"}` : "Any"}</Text>
                   </SimpleGrid>
+                  {wizardForm.description.trim() && (
+                    <Box mt={3} pt={3} borderTopWidth="1px">
+                      <Text color="gray.500" fontSize="xs" mb={1}>Description / Rules / Sponsors</Text>
+                      <Text fontSize="sm" whiteSpace="pre-wrap">{wizardForm.description.trim()}</Text>
+                    </Box>
+                  )}
                 </Box>
 
                 {/* Expected income + commission breakdown */}

@@ -45,8 +45,8 @@ const DURATION_OPTIONS = [
   { value: "permanent", label: "Permanent" },
 ];
 
-function displayName(username: string, isPremium?: boolean, isGMRole?: boolean): string {
-  if (isPremium && isGMRole) return `(Legend) GM ${username}`;
+function displayName(username: string, isPremium?: boolean, isTO?: boolean): string {
+  if (isPremium && isTO) return `(Legend) TO ${username}`;
   if (isPremium) return `(Legend) ${username}`;
   return username;
 }
@@ -210,7 +210,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
       <Heading size="lg" textAlign="center" color="teal.300">
         Lobby: {lobbyId}{" "}
         {isGM
-          ? `— ${displayName(currentUser?.username ?? "GM", currentUser?.isPremium, true)}`
+          ? `— ${displayName(currentUser?.username ?? "TO", currentUser?.isPremium, true)}`
           : currentUser ? `— ${displayName(currentUser.username, currentUser.isPremium)}` : "(Player)"}
       </Heading>
 
@@ -262,7 +262,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
           <Text mt={3} color="gray.500" fontSize="xs">
             {isGM
               ? "All player screens appear above, grouped by team. Click any to focus."
-              : "Participant screens are visible to everyone in the lobby. When the GM starts a round, you will be prompted to share your screen."}
+              : "Participant screens are visible to everyone in the lobby. When the TO starts a round, you will be prompted to share your screen."}
           </Text>
         </Box>
 
@@ -373,7 +373,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
 
       <Box textAlign="center" mt={4} color="gray.500">
         <Text fontSize="sm">
-          Please wait for the Game Master to start the round. Screen sharing and instructions will appear here.
+          Please wait for the Tournament Organizer to start the round. Screen sharing and instructions will appear here.
         </Text>
       </Box>
 

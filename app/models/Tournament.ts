@@ -12,6 +12,7 @@ export interface IParticipant {
 
 export interface ITournament extends Document {
   title:               string;
+  description:         string;
   game:                string;
   type:                "Fire" | "Ice";
   format:              string;
@@ -49,6 +50,7 @@ const participantSchema = new Schema<IParticipant>({
 const tournamentSchema = new Schema<ITournament>(
   {
     title:               { type: String, required: true },
+    description:         { type: String, default: "" },
     game:                { type: String, required: true },
     type:                { type: String, enum: ["Fire", "Ice"], required: true },
     format:              { type: String, required: true },

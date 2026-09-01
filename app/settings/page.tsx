@@ -36,17 +36,6 @@ export default function SettingsPage() {
 
             <VStack spacing={6} align="stretch">
                 <FormControl display="flex" alignItems="center" justifyContent="space-between">
-                    <FormLabel htmlFor="privacy" mb="0">
-                        Privacy mode
-                    </FormLabel>
-                    <Switch
-                        id="privacy"
-                        isChecked={privacyMode}
-                        onChange={() => setPrivacyMode(!privacyMode)}
-                    />
-                </FormControl>
-
-                <FormControl display="flex" alignItems="center" justifyContent="space-between">
                     <FormLabel htmlFor="data" mb="0">
                         Allow data collection
                     </FormLabel>

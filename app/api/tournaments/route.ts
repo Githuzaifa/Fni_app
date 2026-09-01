@@ -22,17 +22,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: "Login required" }, { status: 401 });
     }
 
-    const role = currentUser.role ?? "player";
-    if (!["gm", "moderator", "admin"].includes(role)) {
-      return NextResponse.json(
-        { message: "Only Game Masters can create tournaments" },
-        { status: 403 }
-      );
-    }
-
     const body = await req.json();
     const {
-      title, game, type, format, maxParticipants,
+      title, description, game, type, format, maxParticipants,
       scheduledAt, fee, feeType, region, eloMin, eloMax, prizes,
     } = body;
 
@@ -41,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const tournament = await Tournament.create({
-      title, game, type, format, maxParticipants,
+      title, description: description ?? "", game, type, format, maxParticipants,
       scheduledAt, fee, feeType, region, eloMin, eloMax,
       createdBy: currentUser._id.toString(),
       prizes,

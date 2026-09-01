@@ -33,8 +33,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const sessionDuration = rememberMe ? "30d" : "1h";
-    const cookieMaxAge    = rememberMe ? 30 * 24 * 60 * 60 : 60 * 60;
+    const sessionDuration = rememberMe ? "30d" : "24h";
+    const cookieMaxAge    = rememberMe ? 30 * 24 * 60 * 60 : 24 * 60 * 60;
     const sessionExpiresAt = Date.now() + cookieMaxAge * 1000;
 
     const token = jwt.sign(
@@ -57,7 +57,12 @@ export async function POST(req: Request) {
       userWithoutPassword.elo = Object.fromEntries(userWithoutPassword.elo);
     }
     if (!userWithoutPassword.elo) {
-      userWithoutPassword.elo = { scouring: 400, ageOfEmpires2: 400, warOfDots: 400 };
+      userWithoutPassword.elo = {
+        scouring: 400, ageOfEmpires2: 400, warOfDots: 400,
+        rocketLeague: 400, leagueOfLegends: 400, dota2: 400,
+        totalWarRome2: 400, cs2: 400, coh3: 400,
+        chess: 400, shogi: 400, go: 400, apexLegends: 400,
+      };
     }
 
     const response = NextResponse.json(

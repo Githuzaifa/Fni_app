@@ -92,18 +92,30 @@ export async function POST(
     const commission    = Math.round(gross * COMMISSION_RATE * 100) / 100;
     const netPrize      = Math.round((gross - commission) * 100) / 100;
 
-    // Credit winner wallet (net of commission)
-    if (netPrize > 0) {
-      let wallet = await Wallet.findOne({ userId: winnerUserId });
-      if (!wallet) wallet = await Wallet.create({ userId: winnerUserId, balance: 0 });
-      wallet.balance += netPrize;
-      wallet.transactions.unshift({
-        type:        "prize",
-        amount:      netPrize,
-        description: `Prize: won "${tournament.title}" (10% platform fee deducted)`,
-        createdAt:   new Date(),
-      });
-      await wallet.save();
+    // Determine winning team members (split prize equally among teammates)
+    const winnerTeam = winnerParticipant.team;
+    const prizeRecipients = winnerTeam
+      ? tournament.participants.filter((p) => !p.noShow && p.team === winnerTeam)
+      : [winnerParticipant]; // 1v1 / FFA: only the selected winner
+
+    const prizePerPlayer = prizeRecipients.length > 0
+      ? Math.round((netPrize / prizeRecipients.length) * 100) / 100
+      : 0;
+
+    // Credit each winner's wallet
+    if (prizePerPlayer > 0) {
+      for (const recipient of prizeRecipients) {
+        let wallet = await Wallet.findOne({ userId: recipient.userId });
+        if (!wallet) wallet = await Wallet.create({ userId: recipient.userId, balance: 0 });
+        wallet.balance += prizePerPlayer;
+        wallet.transactions.unshift({
+          type:        "prize",
+          amount:      prizePerPlayer,
+          description: `Prize: "${tournament.title}" — split among ${prizeRecipients.length} teammates (10% platform fee deducted)`,
+          createdAt:   new Date(),
+        });
+        await wallet.save();
+      }
     }
 
     // Update ELO for all participants
@@ -141,9 +153,12 @@ export async function POST(
     return NextResponse.json({
       message:        "Tournament ended",
       winner:         winnerParticipant.username,
+      winningTeam:    winnerTeam ?? "individual",
+      recipients:     prizeRecipients.map((p) => p.username),
       grossPrizePool: gross,
       commission,
       prizeAwarded:   netPrize,
+      prizePerPlayer,
     });
   } catch (err) {
     console.error("End tournament error:", err);

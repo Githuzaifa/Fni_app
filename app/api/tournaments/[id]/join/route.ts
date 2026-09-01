@@ -139,30 +139,50 @@ export async function POST(
       });
     }
 
+    // Assign to Team A or B (FFA has no teams)
+    const format = tournament.format ?? "1v1";
+    const tSize  = format === "FFA" ? tournament.maxParticipants : (parseInt(format.split("v")[0]) || 1);
+    const team: "A" | "B" = (tournament.currentParticipants ?? 0) < tSize ? "A" : "B";
+
     // ── Charge entry fee ──
     const feeAmount = FEE_MAP[tournament.fee] ?? 0;
     let newBalance: number | undefined;
 
     if (feeAmount > 0) {
-      let wallet = await Wallet.findOne({ userId: currentUser._id.toString() });
-      if (!wallet) wallet = await Wallet.create({ userId: currentUser._id.toString(), balance: 0 });
-      if (wallet.balance < feeAmount) {
-        return NextResponse.json({ message: `Insufficient balance. Entry fee: €${feeAmount}` }, { status: 400 });
-      }
-      wallet.balance -= feeAmount;
-      wallet.transactions.push({
-        type:        "fee",
-        amount:      feeAmount,
-        description: `Entry fee: ${tournament.title}`,
-      });
-      await wallet.save();
-      newBalance = wallet.balance;
-    }
+      // per_team: first player on a team pays fee × team size on behalf of all teammates
+      // subsequent teammates on the same team join free
+      const isPerTeam = tournament.feeType === "per_team";
+      const teamAlreadyHasMembers = isPerTeam && format !== "FFA" && format !== "1v1"
+        ? tournament.participants.some((p) => p.team === team)
+        : false;
 
-    // Assign to Team A or B (FFA has no teams)
-    const format   = tournament.format ?? "1v1";
-    const tSize    = format === "FFA" ? tournament.maxParticipants : (parseInt(format.split("v")[0]) || 1);
-    const team: "A" | "B" = (tournament.currentParticipants ?? 0) < tSize ? "A" : "B";
+      const chargeAmount = teamAlreadyHasMembers
+        ? 0
+        : isPerTeam && tSize > 1
+          ? feeAmount * tSize
+          : feeAmount;
+
+      if (chargeAmount > 0) {
+        let wallet = await Wallet.findOne({ userId: currentUser._id.toString() });
+        if (!wallet) wallet = await Wallet.create({ userId: currentUser._id.toString(), balance: 0 });
+        if (wallet.balance < chargeAmount) {
+          return NextResponse.json(
+            { message: `Insufficient balance. Required: €${chargeAmount}${isPerTeam && tSize > 1 ? ` (€${feeAmount} × ${tSize} players)` : ""}` },
+            { status: 400 }
+          );
+        }
+        wallet.balance -= chargeAmount;
+        wallet.transactions.push({
+          type:        "fee",
+          amount:      chargeAmount,
+          description: isPerTeam && tSize > 1
+            ? `Team entry fee: ${tournament.title} (€${feeAmount} × ${tSize} players)`
+            : `Entry fee: ${tournament.title}`,
+        });
+        await wallet.save();
+        newBalance = wallet.balance;
+      }
+    }
 
     // Push participant + increment count
     await Tournament.findByIdAndUpdate(id, {

@@ -5,14 +5,13 @@ interface GamerTags {
   [gameName: string]: string;
 }
 interface Elo {
-    [gameName: string]: number;
-  }
+  [gameName: string]: number;
+}
 
 interface Game {
   id: string;
   name: string;
 }
-
 
 export type UserRole = "player" | "gm" | "moderator" | "admin";
 
@@ -56,15 +55,19 @@ export const useAuthStore = create<AuthState>()(
       sessionExpiresAt: null,
 
       games: [
-        { id: "scouring",          name: "The Scouring" },
-        { id: "warOfDots",         name: "War of Dots" },
-        { id: "ageOfEmpires2",     name: "Age of Empires 2" },
-        { id: "rocketLeague",      name: "Rocket League" },
-        { id: "leagueOfLegends",   name: "League of Legends" },
-        { id: "dota2",             name: "Dota 2" },
-        { id: "totalWarRome2",     name: "Total War: Rome 2" },
-        { id: "cs2",               name: "Counter-Strike 2" },
-        { id: "companyOfHeroes3",  name: "Company of Heroes 3" },
+        { id: "scouring",        name: "The Scouring" },
+        { id: "warOfDots",       name: "War of Dots" },
+        { id: "ageOfEmpires2",   name: "Age of Empires 2" },
+        { id: "rocketLeague",    name: "Rocket League" },
+        { id: "leagueOfLegends", name: "League of Legends" },
+        { id: "dota2",           name: "Dota 2" },
+        { id: "totalWarRome2",   name: "Total War: Rome 2" },
+        { id: "cs2",             name: "Counter-Strike 2" },
+        { id: "coh3",            name: "Company of Heroes 3" },
+        { id: "chess",           name: "Chess (Lichess)" },
+        { id: "shogi",           name: "Shogi (Lishogi)" },
+        { id: "go",              name: "Go" },
+        { id: "apexLegends",     name: "Apex Legends" },
       ],
 
       login: (user, expiresAt) =>
@@ -92,32 +95,37 @@ export const useAuthStore = create<AuthState>()(
           return {
             user: {
               ...state.user,
-              gamerTags: {
-                ...state.user.gamerTags,
-                [gameName]: tag,
-              },
+              gamerTags: { ...state.user.gamerTags, [gameName]: tag },
             },
           };
         }),
-        setBalance: (amount) => set({ balance: amount }),
 
-        setActiveTournament: (id) =>
-          set((state) => ({
-            user: state.user ? { ...state.user, activeTournamentId: id } : null,
-          })),
+      setBalance: (amount) => set({ balance: amount }),
 
+      setActiveTournament: (id) =>
+        set((state) => ({
+          user: state.user ? { ...state.user, activeTournamentId: id } : null,
+        })),
     }),
 
     {
       name: "auth-storage",
       storage: createJSONStorage(() => localStorage),
-      // Only persist auth-relevant fields; games are static and don't need storage
       partialize: (state) => ({
         isAuthenticated: state.isAuthenticated,
         user: state.user,
         balance: state.balance,
         sessionExpiresAt: state.sessionExpiresAt,
       }),
+      // Clear expired sessions immediately on rehydration — prevents the
+      // "logged in for 1 second then kicked out" flash on return visits.
+      onRehydrateStorage: () => (state) => {
+        if (state && state.sessionExpiresAt && Date.now() > state.sessionExpiresAt) {
+          state.isAuthenticated = false;
+          state.user = null;
+          state.sessionExpiresAt = null;
+        }
+      },
     }
   )
 );

@@ -49,10 +49,10 @@ export async function POST(req: Request) {
     const token = jwt.sign(
       { userId: newUser._id, role: "player" },
       process.env.JWT_SECRET!,
-      { expiresIn: "1h" }
+      { expiresIn: "24h" }
     );
 
-    const sessionExpiresAt = Date.now() + 60 * 60 * 1000;
+    const sessionExpiresAt = Date.now() + 24 * 60 * 60 * 1000;
 
     const userObject = newUser.toObject();
     const { password: _, ...userWithoutPassword } = userObject;
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60,
+      maxAge: 24 * 60 * 60,
       path: "/",
     });
 
