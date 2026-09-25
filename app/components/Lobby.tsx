@@ -133,24 +133,30 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
     }
   }, [maximized]);
 
-  // Fetch real participants from DB
+  // Fetch real participants from DB, and keep polling so newly-joined
+  // players show up without needing a manual page refresh.
   useEffect(() => {
-    (async () => {
+    let cancelled = false;
+
+    const loadRoster = async (isFirstLoad: boolean) => {
       try {
         const res  = await fetch(`/api/tournaments/${tournamentId}`);
         const data = await res.json();
-        if (data.tournament?.participants) {
-          setPlayers(data.tournament.participants);
-        }
-        if (data.tournament?.game) {
-          setGame(data.tournament.game);
-        }
+        if (cancelled) return;
+        if (data.tournament?.participants) setPlayers(data.tournament.participants);
+        if (data.tournament?.game) setGame(data.tournament.game);
       } catch {
-        toast({ title: "Could not load participant roster", status: "warning", duration: 3000, isClosable: true });
+        if (isFirstLoad) {
+          toast({ title: "Could not load participant roster", status: "warning", duration: 3000, isClosable: true });
+        }
       } finally {
-        setLoadingRoster(false);
+        if (isFirstLoad) setLoadingRoster(false);
       }
-    })();
+    };
+
+    loadRoster(true);
+    const interval = setInterval(() => loadRoster(false), 8000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [tournamentId]);
 
   // Check whether a schedule has already been generated for this tournament
