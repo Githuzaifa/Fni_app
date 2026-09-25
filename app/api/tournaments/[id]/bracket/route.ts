@@ -4,6 +4,7 @@ import { getUserFromRequest } from "../../../../lib/auth";
 import { Tournament } from "../../../../models/Tournament";
 import { Bracket } from "../../../../models/Bracket";
 import { generateAutoBracket } from "../../../../lib/bracketEngine";
+import { autoCreateChessLink } from "../../../../lib/chessChallenge";
 
 // GET /api/tournaments/[id]/bracket — anyone logged in can view the schedule
 export async function GET(
@@ -82,6 +83,17 @@ export async function POST(
       standings,
       status,
     });
+
+    // Auto-create a Lichess link for any round-1 matches that are already
+    // ready to play (chess tournaments only — no-op for everything else).
+    const readyMatches = bracket.matches.filter((m) => m.status === "ready");
+    if (readyMatches.length > 0) {
+      await Promise.all(readyMatches.map((m) =>
+        autoCreateChessLink(id, tournament.game, tournament.title, bracket.participantSnapshot, m)
+      ));
+      bracket.markModified("matches");
+      await bracket.save();
+    }
 
     return NextResponse.json({ bracket }, { status: 201 });
   } catch (err) {

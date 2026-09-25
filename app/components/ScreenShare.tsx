@@ -17,6 +17,18 @@ interface Participant {
   noShow:   boolean;
 }
 
+// A currently-live bracket match — used to pair up screens so spectators can
+// see exactly which two people are playing each other, instead of a flat,
+// unlabeled list of everyone's screens.
+interface LiveMatch {
+  matchId:      string;
+  label:        string;
+  playerAId?:   string;
+  playerAName?: string;
+  playerBId?:   string;
+  playerBName?: string;
+}
+
 interface RemoteStream {
   identity: string;
   track:    MediaStreamTrack;
@@ -29,6 +41,7 @@ interface Props {
   participants?:  Participant[];
   game?:          string;
   isParticipant?: boolean;
+  liveMatches?:   LiveMatch[];
 }
 
 function StreamVideo({
@@ -72,9 +85,6 @@ function StreamVideo({
         <Text color="white" fontWeight="bold" fontSize="sm" isTruncated maxW="150px">
           {stream.identity}
         </Text>
-        {p?.team && (
-          <Badge colorScheme={p.team === "A" ? "green" : "orange"} fontSize="xs">Team {p.team}</Badge>
-        )}
         {p?.elo !== undefined && (
           <Badge colorScheme="purple" fontSize="xs">ELO {p.elo}</Badge>
         )}
@@ -87,6 +97,29 @@ function StreamVideo({
   );
 }
 
+// One half of a pair view — either the player's live stream, or a "not sharing
+// yet" placeholder labeled with their name so it's still clear who belongs here.
+function PairSlot({
+  stream, name, participants, game,
+}: {
+  stream?:      RemoteStream;
+  name?:        string;
+  participants: Participant[];
+  game:         string;
+}) {
+  if (!stream) {
+    return (
+      <Box w="100%" h="100%" bg="gray.900" display="flex" alignItems="center" justifyContent="center" flexDirection="column" px={2}>
+        <Text color="gray.500" fontSize="sm" textAlign="center">
+          {name ?? "Player"}
+        </Text>
+        <Text color="gray.600" fontSize="xs" mt={1}>hasn't started sharing yet</Text>
+      </Box>
+    );
+  }
+  return <StreamVideo stream={stream} participants={participants} game={game} />;
+}
+
 export default function ScreenShare({
   isGM,
   lobbyId,
@@ -94,6 +127,7 @@ export default function ScreenShare({
   participants = [],
   game = "",
   isParticipant = true,
+  liveMatches = [],
 }: Props) {
   const roomRef       = useRef<Room | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -112,6 +146,7 @@ export default function ScreenShare({
   // Carousel state
   const [viewingTeam, setViewingTeam] = useState<"A" | "B" | null>(null);
   const [streamIdx,   setStreamIdx]   = useState(0);
+  const [pairIdx,     setPairIdx]     = useState(0);
 
   const addRemote = useCallback((identity: string, track: MediaStreamTrack) => {
     // Never show the user their own stream back to them
@@ -152,7 +187,8 @@ export default function ScreenShare({
     return () => clearTimeout(timer);
   }, [countdown, isGM, isParticipant]);
 
-  // Auto-select viewing team when streams arrive
+  // Auto-select viewing team when streams arrive (only relevant when there's
+  // no live bracket match info to pair screens by — see liveMatches below)
   useEffect(() => {
     const teamA = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "A");
     const teamB = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "B");
@@ -163,6 +199,10 @@ export default function ScreenShare({
 
   // Reset index when team or streams change
   useEffect(() => { setStreamIdx(0); }, [viewingTeam]);
+
+  // Reset pair index when the set of live matches changes (new round, etc.)
+  const liveMatchKey = liveMatches.map((m) => m.matchId).join(",");
+  useEffect(() => { setPairIdx(0); }, [liveMatchKey]);
 
   // Fullscreen change listener
   useEffect(() => {
@@ -260,10 +300,27 @@ export default function ScreenShare({
     }
   };
 
-  // Derived streams
+  // Pair up screens by the actual live bracket match, so it's unambiguous
+  // which two screens belong to the same match. Falls back to the old
+  // team A/B split (for direct team-vs-team tournaments not using the
+  // bracket system), and finally to a flat list of every screen.
+  const pairGroups = liveMatches.map((m) => ({
+    key:     m.matchId,
+    label:   m.label,
+    nameA:   m.playerAName,
+    nameB:   m.playerBName,
+    streamA: remoteStreams.find((s) => s.identity === m.playerAName),
+    streamB: remoteStreams.find((s) => s.identity === m.playerBName),
+  }));
+  const hasPairs = pairGroups.length > 0;
+  const currentPair = pairGroups[Math.min(pairIdx, Math.max(0, pairGroups.length - 1))] ?? null;
+  const canPrevPair = pairIdx > 0;
+  const canNextPair = pairIdx < pairGroups.length - 1;
+
+  // Derived streams (fallback modes, used only when there are no live matches to pair by)
   const teamA = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "A");
   const teamB = remoteStreams.filter((s) => participants.find((p) => p.username === s.identity)?.team === "B");
-  const hasTeams = teamA.length > 0 || teamB.length > 0;
+  const hasTeams = !hasPairs && (teamA.length > 0 || teamB.length > 0);
 
   const visibleStreams = hasTeams
     ? (viewingTeam === "B" ? teamB : teamA)
@@ -333,7 +390,12 @@ export default function ScreenShare({
         minH={isFullscreen ? "100vh" : "380px"}
         flex="1"
       >
-        {remoteStreams.length === 0 ? (
+        {hasPairs ? (
+          <HStack w="100%" h={isFullscreen ? "100vh" : "380px"} spacing="2px" bg="purple.600">
+            <Box flex="1" h="100%"><PairSlot stream={currentPair?.streamA} name={currentPair?.nameA} participants={participants} game={game} /></Box>
+            <Box flex="1" h="100%"><PairSlot stream={currentPair?.streamB} name={currentPair?.nameB} participants={participants} game={game} /></Box>
+          </HStack>
+        ) : remoteStreams.length === 0 ? (
           <Box w="100%" h="100%" minH="380px" display="flex" alignItems="center" justifyContent="center">
             <Text color="gray.500" fontSize="sm" textAlign="center" px={4}>
               Waiting for players to share their screens...
@@ -353,7 +415,7 @@ export default function ScreenShare({
         )}
 
         {/* Fullscreen toggle — top right */}
-        {remoteStreams.length > 0 && (
+        {(hasPairs || remoteStreams.length > 0) && (
           <Tooltip label={isFullscreen ? "Exit fullscreen" : "Fullscreen"} placement="left">
             <IconButton
               position="absolute"
@@ -369,8 +431,12 @@ export default function ScreenShare({
           </Tooltip>
         )}
 
-        {/* Stream counter — top left */}
-        {visibleStreams.length > 1 && (
+        {/* Match / stream label — top left */}
+        {hasPairs ? (
+          <Badge position="absolute" top={2} left={2} colorScheme="purple" fontSize="xs" zIndex={10} px={2}>
+            Match {pairIdx + 1} / {pairGroups.length}: {currentPair?.nameA} vs {currentPair?.nameB}
+          </Badge>
+        ) : visibleStreams.length > 1 ? (
           <Badge
             position="absolute"
             top={2}
@@ -381,10 +447,10 @@ export default function ScreenShare({
           >
             {hasTeams ? `Team ${viewingTeam} ` : ""}{streamIdx + 1} / {visibleStreams.length}
           </Badge>
-        )}
+        ) : null}
 
         {/* Bottom navigation overlay */}
-        {remoteStreams.length > 0 && (
+        {(hasPairs || remoteStreams.length > 0) && (
           <HStack
             position="absolute"
             bottom={0}
@@ -396,18 +462,20 @@ export default function ScreenShare({
             justify="space-between"
             zIndex={10}
           >
-            {/* Previous screen */}
+            {/* Previous */}
             <IconButton
               icon={<FaChevronLeft />}
-              aria-label="Previous screen"
+              aria-label="Previous"
               size="md"
               colorScheme="whiteAlpha"
-              isDisabled={!canPrev}
-              onClick={() => setStreamIdx((i) => Math.max(0, i - 1))}
+              isDisabled={hasPairs ? !canPrevPair : !canPrev}
+              onClick={() => hasPairs
+                ? setPairIdx((i) => Math.max(0, i - 1))
+                : setStreamIdx((i) => Math.max(0, i - 1))}
             />
 
-            {/* Team switch button (middle) */}
-            {hasTeams && otherTeamStreams.length > 0 ? (
+            {/* Team switch button (middle) — only in the legacy team-vs-team fallback */}
+            {!hasPairs && hasTeams && otherTeamStreams.length > 0 ? (
               <Button
                 size="sm"
                 colorScheme={otherTeam === "B" ? "orange" : "green"}
@@ -420,14 +488,16 @@ export default function ScreenShare({
               <Box />
             )}
 
-            {/* Next screen */}
+            {/* Next */}
             <IconButton
               icon={<FaChevronRight />}
-              aria-label="Next screen"
+              aria-label="Next"
               size="md"
               colorScheme="whiteAlpha"
-              isDisabled={!canNext}
-              onClick={() => setStreamIdx((i) => Math.min(visibleStreams.length - 1, i + 1))}
+              isDisabled={hasPairs ? !canNextPair : !canNext}
+              onClick={() => hasPairs
+                ? setPairIdx((i) => Math.min(pairGroups.length - 1, i + 1))
+                : setStreamIdx((i) => Math.min(visibleStreams.length - 1, i + 1))}
             />
           </HStack>
         )}

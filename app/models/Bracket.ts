@@ -28,6 +28,10 @@ export interface IMatch {
   loserId?:     string;
   loserName?:   string;
   status:      MatchStatus;
+  // Auto-created external game link (e.g. a Lichess challenge restricted to these two players)
+  externalGameUrl?:   string;
+  externalWhiteUrl?:  string;
+  externalBlackUrl?:  string;
 }
 
 export interface IParticipantSnapshot {
@@ -78,6 +82,9 @@ const matchSchema = new Schema<IMatch>({
   loserId:     { type: String },
   loserName:   { type: String },
   status:      { type: String, enum: ["pending", "ready", "completed"], default: "pending" },
+  externalGameUrl:  { type: String },
+  externalWhiteUrl: { type: String },
+  externalBlackUrl: { type: String },
 }, { _id: false });
 
 const participantSnapshotSchema = new Schema<IParticipantSnapshot>({

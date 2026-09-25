@@ -3,6 +3,7 @@ import { connectToDatabase } from "../../../../../lib/mongodb";
 import { getUserFromRequest } from "../../../../../lib/auth";
 import { Tournament } from "../../../../../models/Tournament";
 import { Bracket } from "../../../../../models/Bracket";
+import { autoCreateChessLink } from "../../../../../lib/chessChallenge";
 
 // POST /api/tournaments/[id]/bracket/matches — GM manually adds one match (manual mode only)
 export async function POST(
@@ -46,7 +47,7 @@ export async function POST(
     }
 
     const matchId = `manual-${bracket.matches.length + 1}`;
-    bracket.matches.push({
+    const newMatch = {
       matchId,
       round,
       stage: "manual",
@@ -58,8 +59,11 @@ export async function POST(
       playerBId: playerB.userId,
       playerBName: playerB.username,
       status: "ready",
-    } as any);
+    };
 
+    await autoCreateChessLink(id, tournament.game, tournament.title, bracket.participantSnapshot, newMatch as any);
+
+    bracket.matches.push(newMatch as any);
     await bracket.save();
     return NextResponse.json({ bracket }, { status: 201 });
   } catch (err) {

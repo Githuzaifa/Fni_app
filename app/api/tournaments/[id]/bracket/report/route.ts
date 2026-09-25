@@ -4,6 +4,7 @@ import { getUserFromRequest } from "../../../../../lib/auth";
 import { Tournament } from "../../../../../models/Tournament";
 import { Bracket, IMatch } from "../../../../../models/Bracket";
 import { applyMatchResult } from "../../../../../lib/bracketEngine";
+import { autoCreateChessLink } from "../../../../../lib/chessChallenge";
 
 // POST /api/tournaments/[id]/bracket/report — GM reports a match result (auto or manual schedules)
 export async function POST(
@@ -37,11 +38,22 @@ export async function POST(
     const matchesPlain: IMatch[] = (bracket.matches as any[]).map((m) =>
       typeof m.toObject === "function" ? m.toObject() : m
     );
+    const statusBefore = new Map(matchesPlain.map((m) => [m.matchId, m.status]));
+
     let result;
     try {
       result = applyMatchResult(matchesPlain, matchId, scoreA, scoreB);
     } catch (e: any) {
       return NextResponse.json({ message: e.message ?? "Could not report result" }, { status: 400 });
+    }
+
+    // Matches that just became ready this call (e.g. the next round's slots
+    // just got filled in) — auto-create a Lichess link for them if applicable.
+    const newlyReady = matchesPlain.filter((m) => statusBefore.get(m.matchId) !== "ready" && m.status === "ready");
+    if (newlyReady.length > 0) {
+      await Promise.all(newlyReady.map((m) =>
+        autoCreateChessLink(id, tournament.game, tournament.title, bracket.participantSnapshot, m)
+      ));
     }
 
     bracket.matches    = matchesPlain as any;

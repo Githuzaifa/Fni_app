@@ -6,7 +6,7 @@ import {
   Badge, SimpleGrid, Divider, useToast, Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalBody, ModalFooter, ModalCloseButton, FormControl,
   FormLabel, Select, NumberInput, NumberInputField, Avatar, Alert, AlertIcon,
-  Table, Tbody, Tr, Td,
+  Table, Tbody, Tr, Td, Link,
 } from "@chakra-ui/react";
 
 interface ParticipantSnapshot {
@@ -30,6 +30,9 @@ interface Match {
   scoreB?:      number;
   winnerId?:    string;
   status:      "pending" | "ready" | "completed";
+  externalGameUrl?:  string;
+  externalWhiteUrl?: string;
+  externalBlackUrl?: string;
 }
 
 interface Standing { userId: string; username: string; position: number }
@@ -349,6 +352,23 @@ export default function SchedulePage() {
                           <Text fontSize="xs" color="green.400" mt={2}>
                             Winner: {m.winnerId === m.playerAId ? m.playerAName : m.playerBName}
                           </Text>
+                        )}
+                        {m.externalGameUrl && m.status !== "completed" && (
+                          <VStack align="start" spacing={0} mt={2} fontSize="xs">
+                            {m.externalWhiteUrl && (
+                              <Link href={m.externalWhiteUrl} isExternal color="purple.300">
+                                ♟️ {m.playerAName}, join your game (White)
+                              </Link>
+                            )}
+                            {m.externalBlackUrl && (
+                              <Link href={m.externalBlackUrl} isExternal color="purple.300">
+                                ♟️ {m.playerBName}, join your game (Black)
+                              </Link>
+                            )}
+                            <Link href={m.externalGameUrl} isExternal color="gray.400">
+                              👁️ Watch on Lichess
+                            </Link>
+                          </VStack>
                         )}
                         {isCreator && m.status === "ready" && (
                           <Button size="xs" mt={3} colorScheme="teal" onClick={() => openReport(m)}>

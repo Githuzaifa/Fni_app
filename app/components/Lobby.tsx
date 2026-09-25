@@ -7,7 +7,7 @@ import {
   ModalFooter, ModalCloseButton, FormControl, FormLabel,
   Select, Textarea, useDisclosure, useToast, Alert, AlertIcon,
   IconButton, Tooltip, Spinner, RadioGroup, Radio, Stack,
-  NumberInput, NumberInputField,
+  NumberInput, NumberInputField, Link,
 } from "@chakra-ui/react";
 import { FaExpand, FaCompress } from "react-icons/fa";
 import { useRouter } from "next/navigation";
@@ -55,6 +55,9 @@ interface BracketMatch {
   playerBId?:   string;
   playerBName?: string;
   status:      "pending" | "ready" | "completed";
+  externalGameUrl?:  string;
+  externalWhiteUrl?: string;
+  externalBlackUrl?: string;
 }
 
 interface BracketData {
@@ -358,6 +361,7 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
             participants={players}
             game={game}
             isParticipant={players.some((p) => p.username === currentUser?.username)}
+            liveMatches={bracket?.matches.filter((m) => m.status === "ready") ?? []}
           />
           <Text mt={3} color="gray.500" fontSize="xs">
             {isGM
@@ -463,6 +467,11 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
                         <Text fontSize="sm">
                           <strong>{m.playerAName}</strong> vs <strong>{m.playerBName}</strong>
                         </Text>
+                        {m.externalGameUrl && (
+                          <Link href={m.externalGameUrl} isExternal color="purple.300" fontSize="xs" display="block">
+                            ♟️ Open Lichess game
+                          </Link>
+                        )}
                       </Box>
                       <Button size="sm" colorScheme="teal" onClick={() => openReportModal(m)}>
                         Report Result
