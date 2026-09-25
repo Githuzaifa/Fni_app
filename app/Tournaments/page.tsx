@@ -61,15 +61,15 @@ const GAME_IMAGE: Record<string, string> = {
   "Age of Empires 2":    "/age_of_empires_2.jpg",
   "War of Dots":         "/war_of_dots.jpg",
   "Rocket League":       "/rocket_league.avif",
-  "League of Legends":   "/league_of_legends.jpg",
-  "Dota 2":              "/dota2.jpg",
-  "Total War: Rome 2":   "/total_war_rome2.jpg",
-  "Counter-Strike 2":    "/counter_strike_2.jpg",
+  "League of Legends":   "/league-of-legends.jpg",
+  "Dota 2":              "/Dota_2.jpg",
+  "Total War: Rome 2":   "/Total_War_Rome_II.jpg",
+  "Counter-Strike 2":    "/CS_2.jpg",
   "Company of Heroes 3": "/company_of_heroes_3.jpg",
-  "Chess (Lichess)":     "/chess.jpg",
-  "Shogi (Lishogi)":     "/shogi.jpg",
-  "Go":                  "/go.jpg",
-  "Apex Legends":        "/apex_legends.jpg",
+  "Chess (Lichess)":     "/lichess.png",
+  "Shogi (Lishogi)":     "/lishogi.jpg",
+  "Go":                  "/go.webp",
+  "Apex Legends":        "/Apex Legends.jpg",
 };
 const FEE_TYPES     = ["Free", "€5", "€10"];
 const PLAYER_COUNTS = ["1v1", "2v2", "3v3", "5v5", "FFA"];
