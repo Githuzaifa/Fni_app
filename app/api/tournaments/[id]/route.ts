@@ -141,18 +141,14 @@ export async function DELETE(
     const currentUser = await resolveUser(req);
     if (!currentUser) return NextResponse.json({ message: "Login required" }, { status: 401 });
 
-    const role = currentUser.role ?? "player";
-    if (!["gm", "moderator", "admin"].includes(role)) {
-      return NextResponse.json({ message: "Only GMs can delete tournaments" }, { status: 403 });
-    }
-
     const { id } = await params;
     const tournament = await Tournament.findById(id);
     if (!tournament) return NextResponse.json({ message: "Tournament not found" }, { status: 404 });
 
+    const role = currentUser.role ?? "player";
     const isOwner = tournament.createdBy === currentUser._id.toString() ||
                     tournament.createdBy === currentUser.username;
-    if (!isOwner && role !== "admin") {
+    if (!isOwner && !["moderator", "admin"].includes(role)) {
       return NextResponse.json({ message: "You can only delete your own tournaments" }, { status: 403 });
     }
 

@@ -8,7 +8,7 @@ type Role = "player" | "gm" | "moderator" | "admin";
 const ROLE_RANK: Record<Role, number> = { player: 1, gm: 2, moderator: 3, admin: 4 };
 
 // PATCH /api/users/role
-// - A Premium player can self-upgrade to "gm"
+// - Any player can self-upgrade to "gm" (Tournament Organizer)
 // - An admin can set any role on any user (pass targetUserId in body)
 export async function PATCH(req: NextRequest) {
   try {
@@ -41,12 +41,6 @@ export async function PATCH(req: NextRequest) {
       }
       if (ROLE_RANK[role] <= ROLE_RANK[currentRole]) {
         return NextResponse.json({ message: "You already have this or a higher role" }, { status: 400 });
-      }
-      if (!currentUser.isPremium) {
-        return NextResponse.json(
-          { message: "A Premium subscription is required to become a Game Master" },
-          { status: 403 }
-        );
       }
     }
 
