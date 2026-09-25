@@ -56,6 +56,7 @@ export default function LoginPage() {
         isClosable: true,
       });
       router.push("/");
+      router.refresh();
     }
     else{
         toast({

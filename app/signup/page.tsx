@@ -89,6 +89,7 @@ useEffect(() => {
         isClosable: true,
       });
       router.push("/");
+      router.refresh();
     }
   };
 
