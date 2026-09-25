@@ -89,8 +89,9 @@ export async function POST(
       );
     }
 
-    // ── ELO check ──
+    // ── ELO check ── TEMPORARILY DISABLED for testing — uncomment to re-enable
     const gameId = GAME_ID[tournament.game];
+    /*
     if (gameId && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
       const eloMap = currentUser.elo instanceof Map
         ? currentUser.elo
@@ -103,6 +104,7 @@ export async function POST(
         return NextResponse.json({ message: `ELO too high (${userElo}). Maximum: ${tournament.eloMax}` }, { status: 400 });
       }
     }
+    */
 
     // Snapshot ELO and gamer tag
     const eloMap      = currentUser.elo instanceof Map ? currentUser.elo : new Map(Object.entries(currentUser.elo ?? {}));
