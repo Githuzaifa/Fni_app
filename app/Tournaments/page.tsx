@@ -381,15 +381,22 @@ export default function Tournaments() {
   const openModalForJoin = (tournamentId: string) => {
     if (!user) { toast({ title: "Please login to join", status: "error", duration: 3000, isClosable: true }); return; }
 
+    // TEMPORARILY DISABLED for testing — uncomment to re-enable the
+    // one-tournament-at-a-time limit before production.
+    /*
     if (user.activeTournamentId) {
       toast({ title: "Already in a tournament", description: "You can only participate in one tournament at a time.", status: "error", duration: 4000, isClosable: true });
       return;
     }
+    */
 
     const gameName   = getGameByTournamentId(tournamentId);
     const game       = totalGames?.find((g) => g.name === gameName);
     const tournament = allTournaments.find((t) => t.id === tournamentId);
 
+    // TEMPORARILY DISABLED for testing — uncomment to re-enable the ELO
+    // gate before production.
+    /*
     if (tournament && game && (tournament.eloMin !== undefined || tournament.eloMax !== undefined)) {
       const userElo = user.elo?.[game.id] ?? 0;
       const min = tournament.eloMin ?? 0;
@@ -399,6 +406,7 @@ export default function Tournaments() {
         return;
       }
     }
+    */
 
     setCurrentAction("joinQueue");
     setSelectedTournamentId(tournamentId);

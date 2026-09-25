@@ -59,10 +59,12 @@ export async function POST(
       }
     }
 
-    // 1-tournament limit
+    // 1-tournament limit — TEMPORARILY DISABLED for testing — uncomment to re-enable
+    /*
     if (currentUser.activeTournamentId) {
       return NextResponse.json({ message: "You are already in a tournament" }, { status: 400 });
     }
+    */
 
     // ── Ban check ──
     const activeBans = await Ban.find({
