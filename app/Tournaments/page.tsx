@@ -714,13 +714,13 @@ export default function Tournaments() {
               <Button colorScheme="teal" mt={4} onClick={() => router.push(`/lobby/${tournament.id}`)}>
                 Join Lobby →
               </Button>
-            ) : tournament.status === "Active" ? (
-              <Badge colorScheme="green" mt={4} px={3} py={2} borderRadius="full" fontSize="sm">Lobby Active</Badge>
-            ) : tournament.status !== "Cancelled" && tournament.status !== "Completed" ? (
+            ) : tournament.status === "Cancelled" || tournament.status === "Completed" ? null : locked ? (
+              <Badge colorScheme="red" mt={4} px={3} py={2} borderRadius="full" fontSize="sm">Registration Locked</Badge>
+            ) : (
               <Button colorScheme="brand" mt={4} onClick={() => openModalForJoin(tournament.id)}>
                 Join Queue
               </Button>
-            ) : null}
+            )}
 
             <Button colorScheme="blue" variant="outline" _hover={{ bg: "blue.100", color: "black" }} onClick={() => router.push(`/Tournaments/${tournament.id}/leaderboard`)}>View Leaderboard</Button>
 
