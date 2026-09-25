@@ -28,7 +28,6 @@ import {
   StatNumber,
   StatHelpText,
   SimpleGrid,
-  useToast,
 } from "@chakra-ui/react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authstore";
@@ -62,12 +61,10 @@ const ROLE_LABELS: Record<string, string> = {
 
 export default function Profile() {
   const user = useAuthStore((state) => state.user);
-  const { logout, login } = useAuthStore();
-  const toast = useToast();
+  const { logout } = useAuthStore();
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [upgradingGM, setUpgradingGM] = useState(false);
 
   const router = useRouter();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -154,42 +151,6 @@ export default function Profile() {
           {ROLE_LABELS[user.role ?? "player"]}
         </Badge>
       </HStack>
-
-      {/* TO Upgrade */}
-      {(user.role === "player" || !user.role) && (
-        <Alert status="info" mb={6} borderRadius="md">
-          <AlertIcon />
-          <Box flex="1">
-            <Text fontWeight="bold">Want to host tournaments?</Text>
-            <Text fontSize="sm">Any player can become a Tournament Organizer and start hosting tournaments for free.</Text>
-          </Box>
-          <Button
-            size="sm"
-            colorScheme="orange"
-            isLoading={upgradingGM}
-            onClick={async () => {
-              setUpgradingGM(true);
-              try {
-                const res = await fetch("/api/users/role", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ role: "gm" }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.message);
-                if (user) login({ ...user, role: "gm" });
-                toast({ title: "You are now a Tournament Organizer!", status: "success", duration: 4000, isClosable: true });
-              } catch (e: any) {
-                toast({ title: e.message, status: "error", duration: 3000, isClosable: true });
-              } finally {
-                setUpgradingGM(false);
-              }
-            }}
-          >
-            Become a TO
-          </Button>
-        </Alert>
-      )}
 
       {/* User Info */}
       <VStack spacing={4} align="start" mb={8}>
