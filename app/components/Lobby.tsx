@@ -7,8 +7,10 @@ import {
   ModalFooter, ModalCloseButton, FormControl, FormLabel,
   Select, Textarea, useDisclosure, useToast, Alert, AlertIcon,
   IconButton, Tooltip, Spinner, RadioGroup, Radio, Stack,
+  NumberInput, NumberInputField,
 } from "@chakra-ui/react";
 import { FaExpand, FaCompress } from "react-icons/fa";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "../store/authstore";
 import ScreenShare from "./ScreenShare";
 import ChatBox from "./ChatBox";
@@ -45,6 +47,22 @@ const DURATION_OPTIONS = [
   { value: "permanent", label: "Permanent" },
 ];
 
+interface BracketMatch {
+  matchId:     string;
+  label:       string;
+  playerAId?:   string;
+  playerAName?: string;
+  playerBId?:   string;
+  playerBName?: string;
+  status:      "pending" | "ready" | "completed";
+}
+
+interface BracketData {
+  mode:    "auto" | "manual";
+  matches: BracketMatch[];
+  status:  "in_progress" | "completed";
+}
+
 function displayName(username: string, isPremium?: boolean, isTO?: boolean): string {
   if (isPremium && isTO) return `(Legend) TO ${username}`;
   if (isPremium) return `(Legend) ${username}`;
@@ -53,6 +71,7 @@ function displayName(username: string, isPremium?: boolean, isTO?: boolean): str
 
 export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
   const toast       = useToast();
+  const router      = useRouter();
   const banModal    = useDisclosure();
   const winnerModal = useDisclosure();
   const currentUser = useAuthStore((state) => state.user);
@@ -61,6 +80,19 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
   const [game,          setGame]          = useState("");
   const [loadingRoster, setLoadingRoster] = useState(true);
   const [maximized,     setMaximized]     = useState<"screen" | "chat" | null>(null);
+
+  // Schedule / bracket state
+  const [bracket,           setBracket]           = useState<BracketData | null>(null);
+  const [checkingSchedule,  setCheckingSchedule]  = useState(true);
+  const [generatingMode,    setGeneratingMode]    = useState<"auto" | "manual" | null>(null);
+  const scheduleExists = !!bracket;
+
+  // Quick match-result reporting (from the lobby, while the match is live)
+  const [reportingMatch, setReportingMatch] = useState<BracketMatch | null>(null);
+  const [reportScoreA,   setReportScoreA]   = useState<number | "">("");
+  const [reportScoreB,   setReportScoreB]   = useState<number | "">("");
+  const [reporting,      setReporting]      = useState(false);
+
   const screenPanelRef = useRef<HTMLDivElement>(null);
   const chatPanelRef   = useRef<HTMLDivElement>(null);
 
@@ -117,6 +149,74 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
       }
     })();
   }, [tournamentId]);
+
+  // Check whether a schedule has already been generated for this tournament
+  useEffect(() => {
+    (async () => {
+      try {
+        const res  = await fetch(`/api/tournaments/${tournamentId}/bracket`);
+        const data = await res.json();
+        setBracket(data.bracket ?? null);
+      } catch {
+        // ignore — schedule buttons just won't show
+      } finally {
+        setCheckingSchedule(false);
+      }
+    })();
+  }, [tournamentId]);
+
+  async function generateSchedule(mode: "auto" | "manual") {
+    setGeneratingMode(mode);
+    try {
+      const res  = await fetch(`/api/tournaments/${tournamentId}/bracket`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ mode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setBracket(data.bracket);
+      toast({ title: "Schedule generated! Ready matches appear below.", status: "success", duration: 4000, isClosable: true });
+    } catch (e: any) {
+      toast({ title: e.message ?? "Failed to generate schedule", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setGeneratingMode(null);
+    }
+  }
+
+  function openReportModal(match: BracketMatch) {
+    setReportingMatch(match);
+    setReportScoreA("");
+    setReportScoreB("");
+  }
+
+  async function submitQuickReport() {
+    if (!reportingMatch || reportScoreA === "" || reportScoreB === "") {
+      toast({ title: "Enter both scores", status: "warning", duration: 2000, isClosable: true });
+      return;
+    }
+    if (reportScoreA === reportScoreB) {
+      toast({ title: "Scores can't be tied — there must be a winner", status: "warning", duration: 3000, isClosable: true });
+      return;
+    }
+    setReporting(true);
+    try {
+      const res  = await fetch(`/api/tournaments/${tournamentId}/bracket/report`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ matchId: reportingMatch.matchId, scoreA: reportScoreA, scoreB: reportScoreB }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      setBracket(data.bracket);
+      setReportingMatch(null);
+      toast({ title: "Result recorded", status: "success", duration: 3000, isClosable: true });
+    } catch (e: any) {
+      toast({ title: e.message ?? "Failed to report result", status: "error", duration: 3000, isClosable: true });
+    } finally {
+      setReporting(false);
+    }
+  }
 
   function openBanModal(player: LobbyPlayer) {
     setSelected(player);
@@ -297,6 +397,85 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
         </Box>
       </HStack>
 
+      {/* TOURNAMENT SCHEDULE */}
+      {!checkingSchedule && (
+        <Box bg="gray.800" p={5} borderRadius="md" borderWidth="1px" borderColor="purple.700">
+          <HStack justify="space-between" flexWrap="wrap" gap={3}>
+            <Box>
+              <Heading size="md" color="purple.300">🗓️ Tournament Schedule</Heading>
+              <Text fontSize="sm" color="gray.400" mt={1}>
+                {scheduleExists
+                  ? "The bracket for this tournament has been generated."
+                  : isGM
+                    ? "Once enough players have joined, generate the schedule to run this tournament round by round."
+                    : "The Tournament Organizer has not generated the schedule yet."}
+              </Text>
+            </Box>
+
+            {scheduleExists ? (
+              <Button colorScheme="purple" onClick={() => router.push(`/Tournaments/${tournamentId}/schedule`)}>
+                View Schedule
+              </Button>
+            ) : isGM ? (
+              <HStack>
+                <Button
+                  colorScheme="purple"
+                  isLoading={generatingMode === "auto"}
+                  isDisabled={players.filter((p) => !p.noShow).length < 2 || !!generatingMode}
+                  onClick={() => generateSchedule("auto")}
+                >
+                  Auto-Generate Schedule
+                </Button>
+                <Button
+                  colorScheme="purple"
+                  variant="outline"
+                  isLoading={generatingMode === "manual"}
+                  isDisabled={players.filter((p) => !p.noShow).length < 2 || !!generatingMode}
+                  onClick={() => generateSchedule("manual")}
+                >
+                  Create Schedule Manually
+                </Button>
+              </HStack>
+            ) : null}
+          </HStack>
+          {isGM && !scheduleExists && players.filter((p) => !p.noShow).length < 2 && (
+            <Text fontSize="xs" color="orange.300" mt={2}>
+              Need at least 2 active participants before a schedule can be generated.
+            </Text>
+          )}
+
+          {/* CURRENT MATCH — quick reporting without leaving the lobby */}
+          {isGM && bracket && (
+            <Box mt={4} pt={4} borderTopWidth="1px" borderColor="gray.700">
+              <Text fontWeight="bold" color="purple.200" mb={2} fontSize="sm">
+                🎮 Current Match{bracket.matches.filter((m) => m.status === "ready").length !== 1 ? "es" : ""}
+              </Text>
+              {bracket.matches.filter((m) => m.status === "ready").length === 0 ? (
+                <Text fontSize="sm" color="gray.500">
+                  {bracket.status === "completed" ? "This tournament's schedule is complete." : "No match is ready to be reported right now."}
+                </Text>
+              ) : (
+                <VStack align="stretch" spacing={2}>
+                  {bracket.matches.filter((m) => m.status === "ready").map((m) => (
+                    <HStack key={m.matchId} justify="space-between" bg="gray.700" borderRadius="md" px={3} py={2} flexWrap="wrap" gap={2}>
+                      <Box>
+                        <Badge colorScheme="purple" mb={1}>{m.label}</Badge>
+                        <Text fontSize="sm">
+                          <strong>{m.playerAName}</strong> vs <strong>{m.playerBName}</strong>
+                        </Text>
+                      </Box>
+                      <Button size="sm" colorScheme="teal" onClick={() => openReportModal(m)}>
+                        Report Result
+                      </Button>
+                    </HStack>
+                  ))}
+                </VStack>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+
       {/* GM CONTROL PANEL */}
       {isGM && (
         <Box bg="gray.800" p={5} borderRadius="md" borderWidth="1px" borderColor="teal.700">
@@ -474,6 +653,40 @@ export default function Lobby({ isGM, lobbyId, tournamentId }: Props) {
               Confirm & End Match
             </Button>
             <Button onClick={winnerModal.onClose}>Cancel</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* QUICK REPORT RESULT MODAL (from the lobby) */}
+      <Modal isOpen={!!reportingMatch} onClose={() => setReportingMatch(null)} isCentered>
+        <ModalOverlay />
+        <ModalContent bg="white" color="black">
+          <ModalHeader>Report Result</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {reportingMatch && (
+              <VStack spacing={3} align="stretch">
+                <Text fontSize="sm" color="gray.500">{reportingMatch.label}</Text>
+                <FormControl isRequired>
+                  <FormLabel>{reportingMatch.playerAName} — score</FormLabel>
+                  <NumberInput value={reportScoreA} min={0} onChange={(_, v) => setReportScoreA(isNaN(v) ? "" : v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel>{reportingMatch.playerBName} — score</FormLabel>
+                  <NumberInput value={reportScoreB} min={0} onChange={(_, v) => setReportScoreB(isNaN(v) ? "" : v)}>
+                    <NumberInputField />
+                  </NumberInput>
+                </FormControl>
+              </VStack>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button colorScheme="teal" mr={3} isLoading={reporting} onClick={submitQuickReport}>
+              Save Result
+            </Button>
+            <Button onClick={() => setReportingMatch(null)}>Cancel</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
