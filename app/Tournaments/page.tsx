@@ -60,7 +60,7 @@ const GAME_IMAGE: Record<string, string> = {
   "The Scouring":        "/scouring.jpg",
   "Age of Empires 2":    "/age_of_empires_2.jpg",
   "War of Dots":         "/war_of_dots.jpg",
-  "Rocket League":       "/rocket_league.jpg",
+  "Rocket League":       "/rocket_league.avif",
   "League of Legends":   "/league_of_legends.jpg",
   "Dota 2":              "/dota2.jpg",
   "Total War: Rome 2":   "/total_war_rome2.jpg",
