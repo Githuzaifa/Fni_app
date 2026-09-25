@@ -6,7 +6,7 @@ import {
   NumberInputStepper, NumberIncrementStepper, NumberDecrementStepper,
 } from "@chakra-ui/react";
 import { FaChevronLeft, FaChevronRight, FaExpand, FaCompress } from "react-icons/fa";
-import { Room, RoomEvent, Track } from "livekit-client";
+import { Room, RoomEvent, Track, ScreenSharePresets } from "livekit-client";
 
 interface Participant {
   userId:   string;
@@ -222,7 +222,20 @@ export default function ScreenShare({
 
   const startSharing = async () => {
     if (!roomRef.current) return;
-    try { await roomRef.current.localParticipant.setScreenShareEnabled(true); } catch { }
+    try {
+      await roomRef.current.localParticipant.setScreenShareEnabled(
+        true,
+        {
+          resolution: ScreenSharePresets.h1080fps30.resolution,
+          contentHint: "motion",
+        },
+        {
+          videoEncoding: ScreenSharePresets.h1080fps30.encoding,
+          screenShareEncoding: ScreenSharePresets.h1080fps30.encoding,
+          simulcast: false,
+        }
+      );
+    } catch { }
   };
 
   const stopSharing = async () => {

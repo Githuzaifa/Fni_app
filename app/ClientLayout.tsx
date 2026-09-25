@@ -46,17 +46,26 @@ export default function ClientLayout({
   // Mark as mounted so auth state from localStorage is applied before rendering auth UI
   useEffect(() => { setHasMounted(true); }, []);
 
-  // Auto-logout when the session expires
+  // Auto-logout when the session expires.
+  // setTimeout's delay is a 32-bit int internally (~24.8 day max) — passing a
+  // longer delay (e.g. a 30-day "remember me" session) overflows and fires
+  // almost immediately. Chain timers capped at that max instead.
   useEffect(() => {
     if (!isAuthenticated || !sessionExpiresAt) return;
 
-    const remaining = sessionExpiresAt - Date.now();
-    if (remaining <= 0) {
-      logout();
-      return;
-    }
+    const MAX_TIMEOUT = 2_147_483_647;
+    let timer: ReturnType<typeof setTimeout>;
 
-    const timer = setTimeout(() => logout(), remaining);
+    const scheduleCheck = () => {
+      const remaining = sessionExpiresAt - Date.now();
+      if (remaining <= 0) {
+        logout();
+        return;
+      }
+      timer = setTimeout(scheduleCheck, Math.min(remaining, MAX_TIMEOUT));
+    };
+
+    scheduleCheck();
     return () => clearTimeout(timer);
   }, [isAuthenticated, sessionExpiresAt, logout]);
 
